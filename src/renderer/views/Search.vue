@@ -18,37 +18,40 @@
               th.nobreak(style="width: 10%;") 时长
       div.scroll(:class="$style.tbody" ref="dom_scrollContent")
         table
-          tbody
-            tr(v-for='(item, index) in listInfo.list' :key='item.songmid' @click="handleDoubleClick(index)")
+          tbody(@contextmenu="handleContextMenu")
+            tr(v-for='(item, index) in listInfo.list' :key='item.songmid' @click="handleDoubleClick($event, index)")
               td.nobreak.center(style="width: 37px;" @click.stop)
                 material-checkbox(:id="index.toString()" v-model="selectdData" :value="item")
               td.break(style="width: 25%;")
-                | {{item.name}}
-                span.badge.badge-info(v-if="item._types['320k']") 高品质
-                span.badge.badge-success(v-if="item._types.ape || item._types.flac") 无损
+                span.select {{item.name}}
+                span.badge.badge-theme-success(v-if="item._types.ape || item._types.flac") 无损
+                span.badge.badge-theme-info(v-else-if="item._types['320k']") 高品质
                 span(:class="$style.labelSource" v-if="searchSourceId == 'all'") {{item.source}}
-              td.break(style="width: 20%;") {{item.singer}}
-              td.break(style="width: 25%;") {{item.albumName}}
+              td.break(style="width: 20%;")
+                span.select {{item.singer}}
+              td.break(style="width: 25%;")
+                span.select {{item.albumName}}
               td(style="width: 15%; padding-left: 0; padding-right: 0;")
                 material-list-buttons(:index="index" :remove-btn="false" :class="$style.listBtn"
-                  :play-btn="item.source != 'tx' && (item.source == 'kw' || !isAPITemp)"
-                  :download-btn="item.source != 'tx' && (item.source == 'kw' || !isAPITemp)"
+                  :play-btn="item.source == 'kw' || !isAPITemp"
+                  :download-btn="item.source == 'kw' || !isAPITemp"
                   @btn-click="handleListBtnClick")
-              td(style="width: 10%;") {{item.interval || '--/--'}}
+              td(style="width: 10%;")
+                span(:class="$style.time") {{item.interval || '--/--'}}
         div(:class="$style.pagination")
           material-pagination(:count="listInfo.total" :limit="listInfo.limit" :page="page" @btn-click="handleTogglePage")
     div(v-else :class="$style.noitem")
       p 搜我所想~~😉
     material-download-modal(:show="isShowDownload" :musicInfo="musicInfo" @select="handleAddDownload" @close="isShowDownload = false")
     material-download-multiple-modal(:show="isShowDownloadMultiple" :list="selectdData" @select="handleAddDownloadMultiple" @close="isShowDownloadMultiple = false")
-    material-flow-btn(:show="isShowEditBtn && searchSourceId != 'tx' && (searchSourceId == 'kw' || searchSourceId == 'all' || !isAPITemp)" :remove-btn="false" @btn-click="handleFlowBtnClick")
+    material-flow-btn(:show="isShowEditBtn && (searchSourceId == 'kw' || searchSourceId == 'all' || !isAPITemp)" :remove-btn="false" @btn-click="handleFlowBtnClick")
     material-list-add-modal(:show="isShowListAdd" :musicInfo="musicInfo" @close="isShowListAdd = false")
     material-list-add-multiple-modal(:show="isShowListAddMultiple" :musicList="selectdData" @close="handleListAddModalClose")
 </template>
 
 <script>
 import { mapGetters, mapActions, mapMutations } from 'vuex'
-import { scrollTo } from '../utils'
+import { scrollTo, clipboardWriteText } from '../utils'
 // import music from '../utils/music'
 export default {
   name: 'Search',
@@ -152,7 +155,8 @@ export default {
         })
       })
     },
-    handleDoubleClick(index) {
+    handleDoubleClick(event, index) {
+      if (event.target.classList.contains('select')) return
       if (
         window.performance.now() - this.clickTime > 400 ||
         this.clickIndex !== index
@@ -190,7 +194,7 @@ export default {
         targetSong = this.selectdData[0]
         this.listAddMultiple({ id: 'default', list: this.filterList(this.selectdData) })
       } else {
-        if (this.listInfo.list[index].source == 'tx' || (this.isAPITemp && this.listInfo.list[index].source != 'kw')) return
+        if (this.isAPITemp && this.listInfo.list[index].source != 'kw') return
         targetSong = this.listInfo.list[index]
         this.listAdd({ id: 'default', musicInfo: targetSong })
       }
@@ -239,11 +243,23 @@ export default {
       }
     },
     filterList(list) {
-      return this.setting.apiSource == 'temp' ? list.filter(s => s.source == 'kw') : list.filter(s => s.source != 'tx')
+      return this.setting.apiSource == 'temp' ? list.filter(s => s.source == 'kw') : [...list]
     },
     handleListAddModalClose(isSelect) {
       if (isSelect) this.resetSelect()
       this.isShowListAddMultiple = false
+    },
+    handleContextMenu(event) {
+      if (!event.target.classList.contains('select')) return
+      let classList = this.$refs.dom_scrollContent.classList
+      classList.add(this.$style.copying)
+      window.requestAnimationFrame(() => {
+        let str = window.getSelection().toString()
+        classList.remove(this.$style.copying)
+        str = str.trim()
+        if (!str.length) return
+        clipboardWriteText(str)
+      })
     },
   },
 }
@@ -279,13 +295,16 @@ export default {
   td {
     font-size: 12px;
     :global(.badge) {
-      margin-right: 3px;
-      &:first-child {
-        margin-left: 3px;
-      }
-      &:last-child {
-        margin-right: 0;
-      }
+      margin-left: 3px;
+    }
+  }
+  :global(.badge) {
+    opacity: .85;
+  }
+
+  &.copying {
+    .labelSource, .time {
+      display: none;
     }
   }
 }

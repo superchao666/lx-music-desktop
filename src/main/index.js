@@ -15,17 +15,20 @@ app.on('second-instance', (event, argv, cwd) => {
   }
 })
 
+const isDev = process.env.NODE_ENV !== 'production'
+
+// https://github.com/electron/electron/issues/18397
+app.allowRendererProcessReuse = !isDev
+
+const { getWindowSizeInfo, parseEnv } = require('./utils')
+
+global.envParams = parseEnv()
+
+require('../common/error')
 require('./events')
 const autoUpdate = require('./utils/autoUpdate')
 const { isLinux, isMac } = require('../common/utils')
-const { getWindowSizeInfo } = require('./utils')
 
-const isDev = process.env.NODE_ENV !== 'production'
-
-/**
- * Set `__static` path to static files in production
- * https://simulatedgreg.gitbooks.io/electron-vue/content/en/using-static-assets.html
- */
 
 let mainWindow
 let winURL
@@ -49,7 +52,7 @@ function createWindow() {
     useContentSize: true,
     width: windowSizeInfo.width,
     frame: false,
-    transparent: !isLinux,
+    transparent: !isLinux && !global.envParams.nt,
     enableRemoteModule: false,
     // icon: path.join(global.__static, isWin ? 'icons/256x256.ico' : 'icons/512x512.png'),
     resizable: false,

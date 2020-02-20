@@ -339,7 +339,7 @@ export default {
       } else if (this.isAPITemp) {
         list = this.list.filter(s => s.source == 'kw')
       } else {
-        list = this.list.filter(s => s.source != 'tx')
+        list = [...this.list]
       }
       if (!list.length) return this.setPlayIndex(-1)
       let playIndex = this.list === list ? this.playIndex : list.indexOf(this.list[this.playIndex])
@@ -588,7 +588,7 @@ export default {
   }
 }
 .left {
-  width: @height-player;
+  width: @height-player - 2;
   color: @color-theme;
   transition: @transition-theme;
   transition-property: color;
@@ -617,7 +617,7 @@ export default {
 .right {
   flex: auto;
   // margin-left: 10px;
-  padding: 5px 10px;
+  padding: 5px 10px 5px 8px;
   display: flex;
   flex-flow: column nowrap;
 }

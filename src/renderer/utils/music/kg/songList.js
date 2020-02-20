@@ -65,8 +65,9 @@ export default {
     for (const key of Object.keys(rawData.data)) {
       let tag = rawData.data[key]
       result.push({
-        id: tag.id,
+        id: tag.special_id,
         name: tag.special_name,
+        source: 'kg',
       })
     }
     return result
@@ -95,7 +96,7 @@ export default {
       this.getSongListUrl(sortId, tagId, page),
     )
     return this._requestObj_list.promise.then(({ body }) => {
-      if (body.status !== 1) return this.getSongList(sortId, tagId, page, ++tryNum)
+      if (!body || body.status !== 1) return this.getSongList(sortId, tagId, page, ++tryNum)
       return this.filterList(body.special_db)
     })
   },

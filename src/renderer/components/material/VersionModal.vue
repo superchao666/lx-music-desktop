@@ -109,6 +109,10 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
       div(:class="$style.desc")
         p 发现有新版本啦，正在努力更新中，若下载太慢可以手动更新哦~
         p
+          | 你也可以关闭本弹窗继续使用软件，还可在
+          strong 设置-软件更新
+          | 重新打开本弹窗。
+        p
           | 手动更新可以去&nbsp;
           strong.hover.underline(@click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/releases')" title="点击打开") 软件发布页
           | &nbsp;或&nbsp;
@@ -261,7 +265,7 @@ export default {
     p {
       font-size: 12px;
       color: @color-theme;
-      line-height: 1.2;
+      line-height: 1.25;
     }
   }
 }
@@ -281,6 +285,9 @@ each(@themes, {
     .footer {
       .desc {
         color: ~'@{color-@{value}-theme}';
+        p {
+          color: ~'@{color-@{value}-theme}';
+        }
       }
     }
   }

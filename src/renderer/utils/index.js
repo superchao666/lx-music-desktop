@@ -176,10 +176,15 @@ export const isChildren = (parent, children) => {
  * 升级设置
  * @param {*} setting
  */
-export const updateSetting = setting => {
-  const defaultVersion = '1.0.14'
+export const updateSetting = (setting, version) => {
+  const defaultVersion = '1.0.15'
+  if (!version) {
+    if (setting) {
+      version = setting.version
+      delete setting.version
+    }
+  }
   const defaultSetting = {
-    version: defaultVersion,
     player: {
       togglePlayMethod: 'listLoop',
       highQuality: false,
@@ -235,21 +240,26 @@ export const updateSetting = setting => {
     sourceId: 'kw',
     apiSource: 'temp',
     randomAnimate: true,
+    ignoreVersion: null,
   }
+
+  // 使用新年皮肤
+  if (new Date().getMonth() < 2) defaultSetting.themeId = 9
+
   const overwriteSetting = {
-    version: defaultVersion,
+
   }
 
 
   if (!setting) {
     setting = defaultSetting
-  } else if (checkVersion(setting.version, defaultSetting.version)) {
+  } else if (checkVersion(version, defaultVersion)) {
     objectDeepMerge(defaultSetting, setting)
     objectDeepMerge(defaultSetting, overwriteSetting)
     setting = defaultSetting
   }
   if (setting.apiSource != 'temp') setting.apiSource = 'test' // 强制设置回 test 接口源
-  return setting
+  return { setting, version: defaultVersion }
 }
 
 /**
@@ -280,6 +290,12 @@ export const toMD5 = str => crypto.createHash('md5').update(str).digest('hex')
  * @param {*} str
  */
 export const clipboardWriteText = str => clipboard.writeText(str)
+
+/**
+ * 从剪贴板读取文本
+ * @param {*} str
+ */
+export const clipboardReadText = str => clipboard.readText()
 
 /**
  * 设置音频 meta 信息

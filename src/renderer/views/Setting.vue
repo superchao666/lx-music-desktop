@@ -18,8 +18,9 @@ div.scroll(:class="$style.setting")
     dd(title='选择音乐来源')
       h3 音乐来源
       div
-        material-checkbox(v-for="item in apiSources" :id="`setting_api_source_${item.id}`" name="setting_api_source" @change="handleAPISourceChange(item.id)" :class="$style.gapTop"
-          need v-model="current_setting.apiSource" :disabled="item.disabled" :value="item.id" :label="item.label" :key="item.id")
+        div(v-for="item in apiSources" :key="item.id" :class="$style.gapTop")
+          material-checkbox(:id="`setting_api_source_${item.id}`" name="setting_api_source" @change="handleAPISourceChange(item.id)"
+            need v-model="current_setting.apiSource" :disabled="item.disabled" :value="item.id" :label="item.label")
 
     dd(title='设置软件窗口尺寸')
       h3 窗口尺寸
@@ -78,7 +79,7 @@ div.scroll(:class="$style.setting")
         material-checkbox(id="setting_download_isDownloadLrc" v-model="current_setting.download.isDownloadLrc" label="是否启用")
     dt 网络设置
     dd
-      h3 代理设置
+      h3 代理设置（乱设置软件将无法联网）
       div
         p
           material-checkbox(id="setting_network_proxy_enable" v-model="current_setting.network.proxy.enable" @change="handleProxyChange('enable')" label="是否启用")
@@ -129,7 +130,7 @@ div.scroll(:class="$style.setting")
         br
         | 下载进度：{{downloadProgress}}
       p(v-if="version.newVersion")
-        span(v-if="isLatestVer") 软件已是最新，尽情地体验吧~🥂
+        span(v-if="version.isLatestVer") 软件已是最新，尽情地体验吧~🥂
         material-btn(v-else :class="[$style.btn, $style.gapLeft]" min @click="showUpdateModal") 打开更新窗口 🚀
       p.small(v-else) 检查更新中...
     dt 关于洛雪音乐
@@ -145,33 +146,42 @@ div.scroll(:class="$style.setting")
       p.small
         | 软件的常见问题可转至：
         span.hover.underline(title="点击打开" @click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/blob/master/FAQ.md')") 常见问题
-      //- p.small
-          | 怀念曾经的
-          strong @messoer
-          | ，非常感谢曾经为本软件提供数据源！
       p.small
         | 阅读常见问题后仍有问题可 mail to：
         span.hover(title="点击复制" @click="clipboardWriteText('lyswhut@qq.com')") lyswhut@qq.com
         | &nbsp;或到 GitHub 提交&nbsp;
         span.hover.underline(title="点击打开" @click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/issues')") issue
+
+      br
       p.small
-        | 若觉得好用的话可以去 GitHub 点个
-        strong star
-        | 支持作者哦~~🍻
-      p
-        span 如果你资金充裕，还可以
+        span 如果你资金充裕，或许可以
         material-btn(@click="handleOpenUrl('https://cdn.stsky.cn/qrc.png')" min title="土豪，你好 🙂") 捐赠下作者
-        span ，以帮我分担点服务器费用~❤️
+        span ~❤️，捐赠完全是一种
+        strong 用户自愿
+        | 的行为，
+      p.small 捐赠不会获得任何特权，并且你可能还要做好前一秒捐赠，下一秒软件将不可用的心理准备！
       p.small
-        |  本软件仅用于学习交流使用，禁止将本软件用于
+        | 由于软件开发的初衷仅是为了
+        span(:class="$style.delLine") 自用
+        | 学习研究，因此软件直至停止维护都将会一直保持纯净。
+
+      br
+      p.small
+        | 使用本软件可能产生的
+        strong 任何涉及版权相关的数据
+        | 请于
+        strong 24小时内删除
+        | ，
+      p.small
+        |  本软件仅用于学习与交流使用，禁止将本软件用于
         strong 非法用途
         | 或
         strong 商业用途
         | 。
       p.small
-          | 使用本软件造成的一切后果由
-          strong 使用者
-          | 承担！
+        | 使用本软件造成的一切后果由
+        strong 使用者
+        | 承担！
       p
         small By：
         | 落雪无痕
@@ -197,11 +207,8 @@ import fs from 'fs'
 export default {
   name: 'Setting',
   computed: {
-    ...mapGetters(['setting', 'themes', 'version', 'windowSizeList']),
+    ...mapGetters(['setting', 'settingVersion', 'themes', 'version', 'windowSizeList']),
     ...mapGetters('list', ['defaultList', 'loveList']),
-    isLatestVer() {
-      return this.version.newVersion && this.version.version === this.version.newVersion.version
-    },
     isShowRebootBtn() {
       return this.current_setting.windowSizeId != window.currentWindowSizeId
     },
@@ -214,7 +221,6 @@ export default {
   data() {
     return {
       current_setting: {
-        version: null,
         player: {
           togglePlayMethod: 'random',
           highQuality: false,
@@ -303,7 +309,7 @@ export default {
   watch: {
     current_setting: {
       handler(n, o) {
-        if (!o.version) return
+        if (!this.settingVersion) return
         this.setSetting(JSON.parse(JSON.stringify(n)))
       },
       deep: true,
@@ -322,7 +328,7 @@ export default {
     this.init()
   },
   methods: {
-    ...mapMutations(['setSetting', 'setVersionModalVisible']),
+    ...mapMutations(['setSetting', 'setSettingVersion', 'setVersionModalVisible']),
     ...mapMutations('list', ['setList']),
     init() {
       this.current_setting = JSON.parse(JSON.stringify(this.setting))
@@ -343,23 +349,23 @@ export default {
       openDirInExplorer(dir)
     },
     importSetting(path) {
-      let setting
+      let settingData
       try {
-        setting = JSON.parse(fs.readFileSync(path, 'utf8'))
+        settingData = JSON.parse(fs.readFileSync(path, 'utf8'))
       } catch (error) {
         return
       }
-      if (setting.type !== 'setting') return
-      this.setSetting(updateSetting(setting.data))
-      this.init()
+      if (settingData.type !== 'setting') return
+      const { version: settingVersion, setting } = updateSetting(settingData.data)
+      this.refreshSetting(setting, settingVersion)
     },
     exportSetting(path) {
       console.log(path)
       const data = {
         type: 'setting',
-        data: this.setting,
+        data: Object.assign({ version: this.settingVersion }, this.setting),
       }
-      fs.writeFile(path, JSON.stringify(data), 'utf8', err => {
+      fs.writeFile(path, JSON.stringify(data, null, 2), 'utf8', err => {
         console.log(err)
       })
     },
@@ -389,7 +395,7 @@ export default {
           this.loveList,
         ],
       }
-      fs.writeFile(path, JSON.stringify(data), 'utf8', err => {
+      fs.writeFile(path, JSON.stringify(data, null, 2), 'utf8', err => {
         console.log(err)
       })
     },
@@ -401,9 +407,8 @@ export default {
         return
       }
       if (allData.type !== 'allData') return
-      this.setSetting(updateSetting(allData.setting))
-      this.init()
-      if (allData.defaultList) return this.setList({ id: 'default', list: allData.defaultList.list })
+      const { version: settingVersion, setting } = updateSetting(allData.setting)
+      this.refreshSetting(setting, settingVersion)
 
       for (const list of allData.playList) {
         this.setList({ id: list.id, list: list.list })
@@ -412,13 +417,13 @@ export default {
     exportAllData(path) {
       let allData = {
         type: 'allData',
-        setting: this.setting,
+        setting: Object.assign({ version: this.settingVersion }, this.setting),
         playList: [
           this.defaultList,
           this.loveList,
         ],
       }
-      fs.writeFile(path, JSON.stringify(allData), 'utf8', err => {
+      fs.writeFile(path, JSON.stringify(allData, null, 2), 'utf8', err => {
         console.log(err)
       })
     },
@@ -515,9 +520,18 @@ export default {
         this.getCacheSize()
       })
     },
-    handleWindowSizeChange(index) {
-      let info = this.windowSizeList[index]
+    handleWindowSizeChange(index, id) {
+      let info = id == null ? this.windowSizeList[index] : this.windowSizeList.find(s => s.id == id)
       setWindowSize(info.width, info.height)
+    },
+    refreshSetting(setting, version) {
+      this.setSetting(setting)
+      this.setSettingVersion(version)
+      if (setting.windowSizeId != null) this.handleWindowSizeChange(null, setting.windowSizeId)
+      for (let key of Object.keys(setting.network.proxy)) {
+        window.globalObj.proxy[key] = setting.network.proxy[key]
+      }
+      this.init()
     },
   },
 }
@@ -646,6 +660,36 @@ export default {
 
 .save-path {
   font-size: 12px;
+}
+
+.del-line {
+  position: relative;
+  &:before {
+    display: block;
+    height: 1px;
+    position: absolute;
+    width: 110%;
+    content: ' ';
+    left: 0;
+    background-color: #000;
+    transform: rotate(-24deg);
+    transform-origin: 0;
+    top: 83%;
+    z-index: 1;
+  }
+  &:after {
+    display: block;
+    height: 1px;
+    position: absolute;
+    width: 110%;
+    content: ' ';
+    left: 0;
+    background-color: #000;
+    transform: rotate(23deg);
+    transform-origin: 0px;
+    top: 2px;
+    z-index: 1;
+  }
 }
 
 each(@themes, {
