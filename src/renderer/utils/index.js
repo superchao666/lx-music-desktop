@@ -40,7 +40,14 @@ export const b64DecodeUnicode = str => {
   }).join(''))
 }
 
-export const decodeName = str => str.replace(/&apos;/g, '\'')
+const encodeNames = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&apos;': "'",
+}
+export const decodeName = str => str.replace(/(?:&amp;|&lt;|&gt;|&quot;|&apos;)/g, s => encodeNames[s])
 
 const easeInOutQuad = (t, b, c, d) => {
   t /= d / 2
@@ -58,6 +65,7 @@ const easeInOutQuad = (t, b, c, d) => {
 export const scrollTo = (element, to, duration = 300, fn = () => {}) => {
   if (!element) return
   const start = element.scrollTop || element.scrollY || 0
+  let cancel = false
   if (to > start) {
     let maxScrollTop = element.scrollHeight - element.clientHeight
     if (to > maxScrollTop) to = maxScrollTop
@@ -80,20 +88,28 @@ export const scrollTo = (element, to, duration = 300, fn = () => {}) => {
       element.scrollTop = val
     }
     if (currentTime < duration) {
+      if (cancel) return fn()
       setTimeout(animateScroll, increment)
     } else {
       fn()
     }
   }
   animateScroll()
+  return () => {
+    cancel = true
+  }
 }
 
 /**
  * 检查路径是否存在
- * @param {*} path
+ * @param {*} path 路径
  */
-export const checkPath = path => fs.existsSync(path)
-
+export const checkPath = (path) => new Promise(resolve => {
+  fs.access(path, fs.constants.F_OK, err => {
+    if (err) return resolve(false)
+    resolve(true)
+  })
+})
 
 /**
  * 选择路径
@@ -164,20 +180,11 @@ export const objectDeepMerge = (target, source) => {
 }
 
 /**
- * 判断是否父子元素
- * @param {*} parent
- * @param {*} children
- */
-export const isChildren = (parent, children) => {
-  return children.parentNode ? children.parentNode === parent ? true : isChildren(parent, children.parentNode) : false
-}
-
-/**
  * 升级设置
  * @param {*} setting
  */
 export const updateSetting = (setting, version) => {
-  const defaultVersion = '1.0.15'
+  const defaultVersion = '1.0.23'
   if (!version) {
     if (setting) {
       version = setting.version
@@ -190,6 +197,7 @@ export const updateSetting = (setting, version) => {
       highQuality: false,
       isShowTaskProgess: true,
       volume: 1,
+      mediaDeviceId: 'default',
     },
     list: {
       isShowAlbumName: true,
@@ -225,6 +233,9 @@ export const updateSetting = (setting, version) => {
     search: {
       searchSource: 'kw',
       tempSearchSource: 'kw',
+      isShowHotSearch: false,
+      isShowHistorySearch: false,
+      isFocusSearchBox: false,
     },
     network: {
       proxy: {
@@ -235,12 +246,19 @@ export const updateSetting = (setting, version) => {
         password: '',
       },
     },
-    windowSizeId: 1,
+    tray: {
+      isShow: false,
+      isToTray: false,
+    },
+    windowSizeId: 2,
     themeId: 0,
+    langId: 'cns',
     sourceId: 'kw',
     apiSource: 'temp',
+    sourceNameType: 'alias',
     randomAnimate: true,
     ignoreVersion: null,
+    isAgreePact: false,
   }
 
   // 使用新年皮肤
@@ -259,6 +277,7 @@ export const updateSetting = (setting, version) => {
     setting = defaultSetting
   }
   if (setting.apiSource != 'temp') setting.apiSource = 'test' // 强制设置回 test 接口源
+
   return { setting, version: defaultVersion }
 }
 
@@ -409,3 +428,6 @@ export const setWindowSize = (width, height) => rendererSend('setWindowSize', { 
 export const getProxyInfo = () => window.globalObj.proxy.enable
   ? `http://${window.globalObj.proxy.username}:${window.globalObj.proxy.password}@${window.globalObj.proxy.host}:${window.globalObj.proxy.port};`
   : undefined
+
+
+export const assertApiSupport = source => window.globalObj.qualityList[source] != undefined

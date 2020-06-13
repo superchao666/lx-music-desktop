@@ -75,6 +75,9 @@ export default {
       n ? this.showList() : this.hideList()
     },
   },
+  mounted() {
+    if (this.$store.getters.setting.search.isFocusSearchBox) this.$refs.dom_input.focus()
+  },
   methods: {
     handleTemplistClick(index) {
       this.sendEvent('listClick', index)
@@ -133,7 +136,7 @@ export default {
 @import '../../assets/styles/layout.less';
 
 .search {
-  border-radius: 3px;
+  border-radius: @form-radius;
   transition: box-shadow .4s ease, background-color @transition-theme;
   display: flex;
   flex-flow: column nowrap;

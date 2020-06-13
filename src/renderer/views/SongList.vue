@@ -14,13 +14,14 @@
             //- | &nbsp;
             //- material-btn(:class="$style.closeDetailButton" :disabled="detailLoading" @click="playSongListDetail") 播放
             //- | &nbsp;
-            material-btn(:class="$style.closeDetailButton" @click="hideListDetail") 返回
-        material-song-list(v-model="selectdData" @action="handleSongListAction" :source="source" :page="listDetail.page" :limit="listDetail.limit" :total="listDetail.total" :list="listDetail.list")
+            material-btn(:class="$style.closeDetailButton" @click="hideListDetail") {{$t('view.song_list.back')}}
+        material-song-list(v-model="selectdData" @action="handleSongListAction" :source="source" :page="listDetail.page" :limit="listDetail.limit"
+         :total="listDetail.total" :noItem="isGetDetailFailed ? $t('view.song_list.loding_list_fail') : $t('view.song_list.loding_list')" :list="listDetail.list")
     transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
       div(:class="$style.songListContainer" v-if="!isVisibleListDetail")
         div(:class="$style.header")
-          material-tag-list(:class="$style.tagList" :list="tagList" v-model="tagInfo")
-          material-tab(:class="$style.tab" :list="sorts" item-key="id" item-name="name" v-model="sortId")
+          material-tag-list(:class="$style.tagList" :list-width="listWidth" ref="tagList" :list="tagList" v-model="tagInfo")
+          material-tab(:class="$style.tab" :list="sorts" item-key="id" ref="tab" item-name="name" v-model="sortId")
           material-select(:class="$style.select" :list="sourceInfo.sources" item-key="id" item-name="name" v-model="source")
         div(:class="$style.songListContent")
           transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
@@ -39,12 +40,18 @@
                     material-pagination(:count="listData.total" :limit="listData.limit" :page="listData.page" @btn-click="handleToggleListPage")
               transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
                 div(:class="$style.importSongListContent" v-show="sortId === 'importSongList'")
-                  material-search-input(v-model="importSongListText" @event="handleImportSongListEvent" big placeholder="输入歌单链接或歌单ID")
-                    svg(version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' height='100%' viewBox='0 0 451.846 451.847' space='preserve')
-                      use(xlink:href='#icon-right')
+                  div(:style="{ width: '500px' }")
+                    material-search-input(v-model="importSongListText" @event="handleImportSongListEvent" big :placeholder="$t('view.song_list.input_text')")
+                      svg(version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' height='100%' viewBox='0 0 451.846 451.847' space='preserve')
+                        use(xlink:href='#icon-right')
+                    div(:class="$style.tips")
+                      ul
+                        li {{$t('view.song_list.tip_1')}}
+                        li {{$t('view.song_list.tip_2')}}
+                        li {{$t('view.song_list.tip_3')}}
           transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
             div(v-show="!listData.list.length" :class="$style.noitem")
-              p 列表加载中...
+              p {{$t('view.song_list.loding_list')}}
     material-download-modal(:show="isShowDownload" :musicInfo="musicInfo" @select="handleAddDownload" @close="isShowDownload = false")
     material-download-multiple-modal(:show="isShowDownloadMultiple" :list="selectdData" @select="handleAddDownloadMultiple" @close="isShowDownloadMultiple = false")
     material-list-add-modal(:show="isShowListAdd" :musicInfo="musicInfo" @close="isShowListAdd = false")
@@ -53,14 +60,14 @@
 
 <script>
 import { mapGetters, mapMutations, mapActions } from 'vuex'
-import { scrollTo } from '../utils'
+import { scrollTo, assertApiSupport } from '../utils'
 // import music from '../utils/music'
 export default {
   name: 'SongList',
   data() {
     return {
       tagInfo: {
-        name: '默认',
+        name: this.$t('material.tag_list.default'),
         id: null,
       },
       sortId: undefined,
@@ -73,6 +80,9 @@ export default {
       isShowListAdd: false,
       isShowListAddMultiple: false,
       importSongListText: '',
+      listWidth: 645,
+      isGetDetailFailed: false,
+      isInitedTagListWidth: false,
       // detailLoading: true,
     }
   },
@@ -90,15 +100,13 @@ export default {
         case 'tx':
         case 'mg':
         case 'kg':
+        case 'xm':
           list.push({
-            name: `打开${this.sourceInfo.sources.find(s => s.id == this.source).name}歌单`,
+            name: this.$t('view.song_list.open_list', { name: this.sourceInfo.sources.find(s => s.id == this.source).name }),
             id: 'importSongList',
           })
       }
       return list
-    },
-    isAPITemp() {
-      return this.setting.apiSource == 'temp'
     },
     tagList() {
       let tagInfo = this.tags[this.source]
@@ -149,17 +157,21 @@ export default {
         this.sortId = this.sorts[0] && this.sorts[0].id
       }
     },
+    'setting.themeId'() {
+      this.setTagListWidth()
+    },
   },
   mounted() {
     this.source = this.setting.songList.source
     this.isToggleSource = true
     this.tagInfo = this.setting.songList.tagInfo
     this.sortId = this.setting.songList.sortId
+    if (!this.isVisibleListDetail) this.setTagListWidth()
   },
   methods: {
     ...mapMutations(['setSongList']),
     ...mapActions('songList', ['getTags', 'getList', 'getListDetail']),
-    ...mapMutations('songList', ['setVisibleListDetail', 'setSelectListInfo', 'clearListDetail']),
+    ...mapMutations('songList', ['setVisibleListDetail', 'setSelectListInfo']),
     ...mapActions('download', ['createDownload', 'createDownloadMultiple']),
     ...mapMutations('list', ['listAdd', 'listAddMultiple']),
     ...mapMutations('player', ['setList']),
@@ -193,7 +205,7 @@ export default {
         this.resetSelect()
       } else {
         targetSong = this.listDetail.list[index]
-        if (this.isAPITemp && targetSong.source != 'kw') return
+        if (!this.assertApiSupport(targetSong.source)) return
         this.listAdd({ id: 'default', musicInfo: targetSong })
       }
       let targetIndex = this.defaultList.list.findIndex(
@@ -224,7 +236,7 @@ export default {
       })
     },
     handleToggleListDetailPage(page) {
-      this.getListDetail({ id: this.selectListInfo.id, page }).then(() => {
+      this.handleGetListDetail(this.selectListInfo.id, page).then(() => {
         this.$nextTick(() => {
           scrollTo(this.$refs.dom_scrollContent, 0)
         })
@@ -235,12 +247,7 @@ export default {
       this.isShowDownload = false
     },
     handleAddDownloadMultiple(type) {
-      switch (this.source) {
-        // case 'kg':
-        case 'tx':
-        case 'wy':
-          type = '128k'
-      }
+      if (this.source == 'xm' && type == 'flac') type = 'wav'
       this.createDownloadMultiple({ list: this.filterList(this.selectdData), type })
       this.resetSelect()
       this.isShowDownloadMultiple = false
@@ -249,9 +256,8 @@ export default {
       // this.detailLoading = true
       this.setSelectListInfo(this.listData.list[index])
       this.setVisibleListDetail(true)
-      this.clearListDetail()
       this.$nextTick(() => {
-        this.getListDetail({ id: this.selectListInfo.id, page: 1 })
+        this.handleGetListDetail(this.selectListInfo.id, 1)
       })
     },
     handleFlowBtnClick(action) {
@@ -285,7 +291,11 @@ export default {
       this.selectdData = []
     },
     hideListDetail() {
-      setTimeout(() => this.setVisibleListDetail(false), 50)
+      setTimeout(async() => {
+        this.setVisibleListDetail(false)
+        await this.$nextTick()
+        this.setTagListWidth()
+      }, 50)
     },
     handleListAddModalClose(isSelect) {
       if (isSelect) this.resetSelect()
@@ -296,13 +306,11 @@ export default {
         case 'submit':
           this.handleGetSongListDetail()
           break
-        case 'blur':
-          this.parseImportSongListInputText()
-          break
+        // case 'blur':
+        //   break
       }
     },
     handleGetSongListDetail() {
-      this.parseImportSongListInputText()
       this.setSelectListInfo({
         play_count: null,
         id: this.importSongListText,
@@ -312,48 +320,25 @@ export default {
         desc: '',
         source: this.source,
       })
-      this.clearListDetail()
-      this.$nextTick(() => {
-        this.setVisibleListDetail(true)
-        this.getListDetail({ id: this.importSongListText, page: 1 })
-      })
-    },
-    parseImportSongListInputText() {
-      if (!(/[?&:/]/.test(this.importSongListText))) return
-      const text = this.importSongListText
-      let regx
-      switch (this.source) {
-        case 'wy':
-          regx = /^.+(?:\?|&)id=(\d+)(?:&.*$|#.*$|$)/
-          break
-        case 'tx':
-          // https://y.qq.com/n/yqq/playlist/7217720898.html
-          // https://i.y.qq.com/n2/m/share/details/taoge.html?platform=11&appshare=android_qq&appversion=9050006&id=7217720898&ADTAG=qfshare
-          regx = /\/\/i\.y\.qq\.com/.test(text) ? /^.+(?:\?|&)id=(\d+)(?:&.*$|#.*$|$)/ : /^.+\/(\d+)\.html(?:\?.*|&.*$|#.*$|$)/
-          break
-        case 'kw':
-          // http://www.kuwo.cn/playlist_detail/2886046289
-          regx = /^.+\/playlist_detail\/(\d+)(?:\?.*|&.*$|#.*$|$)/
-          break
-        case 'bd':
-          // http://music.taihe.com/songlist/566347741
-          regx = /^.+\/songlist\/(\d+)(?:\?.*|&.*$|#.*$|$)/
-          break
-        case 'mg':
-          // http://music.migu.cn/v3/music/playlist/161044573?page=1
-          regx = /^.+\/playlist\/(\d+)(?:\?.*|&.*$|#.*$|$)/
-          break
-        case 'kg':
-          // https://www.kugou.com/yy/special/single/1067062.html
-          regx = /^.+\/(\d+)\.html(?:\?.*|&.*$|#.*$|$)/
-          break
-        default:
-          return
-      }
-      this.importSongListText = text.replace(regx, '$1')
+      this.setVisibleListDetail(true)
+      this.handleGetListDetail(this.importSongListText, 1)
     },
     filterList(list) {
-      return this.setting.apiSource == 'temp' ? list.filter(s => s.source == 'kw') : [...list]
+      return list.filter(s => this.assertApiSupport(s.source))
+    },
+    setTagListWidth() {
+      this.isInitedTagListWidth = true
+      this.listWidth = this.$refs.tagList.$el.clientWidth + this.$refs.tab.$el.clientWidth + 2
+    },
+    handleGetListDetail(id, page) {
+      this.isGetDetailFailed = false
+      return this.getListDetail({ id, page }).catch(err => {
+        this.isGetDetailFailed = true
+        return Promise.reject(err)
+      })
+    },
+    assertApiSupport(source) {
+      return assertApiSupport(source)
     },
     /*     addSongListDetail() {
       // this.detailLoading = true
@@ -551,6 +536,17 @@ export default {
   }
 }
 
+.tips {
+  padding: 15px 0;
+  font-size: 12px;
+  color: @color-theme_2-font;
+  line-height: 1.5;
+  ul {
+    list-style: decimal;
+    padding-left: 15px;
+  }
+}
+
 each(@themes, {
   :global(#container.@{value}) {
     .song-list-header-middle {
@@ -567,6 +563,9 @@ each(@themes, {
       p {
         color: ~'@{color-@{value}-theme_2-font-label}';
       }
+    }
+    .tips {
+      color: ~'@{color-@{value}-theme_2-font}';
     }
   }
 })

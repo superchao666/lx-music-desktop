@@ -4,6 +4,10 @@
 	-webkit-user-drag: none;
 }
 
+html {
+  font-size: 16px;
+}
+
 .nobreak {
   white-space: nowrap;
 }
@@ -49,15 +53,18 @@ table {
       &:hover {
         background-color: @color-theme_2-hover;
       }
+      &.active {
+        background-color: @color-theme_2-active;
+      }
       &:first-child {
         border-top: none;
       }
       td {
-        padding: 5px;
+        padding: 6px;
         position: relative;
         transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         font-size: 13px;
-        line-height: 1.4;
+        line-height: 16px;
         vertical-align: middle;
       }
     }
@@ -153,6 +160,7 @@ input, textarea {
 }
 
 .scroll {
+  overflow: auto;
   &::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -207,6 +215,9 @@ each(@themes, {
           border-top-color: ~'@{color-@{value}-theme_2-line}';
           &:hover {
             background-color: ~'@{color-@{value}-theme_2-hover}';
+          }
+          &.active {
+            background-color: ~'@{color-@{value}-theme_2-active}';
           }
         }
       }

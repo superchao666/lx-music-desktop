@@ -30,6 +30,8 @@ electronStore_config.set('version', settingVersion)
 electronStore_config.set('setting', setting)
 process.versions.app = version
 
+window.i18n.locale = setting.langId
+
 export default {
   themes: [
     {
@@ -58,6 +60,11 @@ export default {
       class: 'red',
     },
     {
+      id: 10,
+      name: '粉装玉琢',
+      class: 'pink',
+    },
+    {
       id: 5,
       name: '重斤球紫',
       class: 'purple',
@@ -68,19 +75,24 @@ export default {
       class: 'grey',
     },
     {
+      id: 11,
+      name: '青出于黑',
+      class: 'ming',
+    },
+    {
       id: 7,
       name: '月里嫦娥',
-      class: 'midAutumn',
+      class: 'mid_autumn',
     },
     {
       id: 8,
       name: '木叶之村',
-      class: 'dhHyrz',
+      class: 'naruto',
     },
     {
       id: 9,
       name: '新年快乐',
-      class: 'happyNewYear',
+      class: 'happy_new_year',
     },
   ],
   version: {

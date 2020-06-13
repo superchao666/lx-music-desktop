@@ -6,9 +6,9 @@
       @event="handleEvent" :list="tipList" :visibleList="visibleList"
       v-model="searchText")
     div(:class="$style.control")
-      button(type="button" :class="$style.min" title="最小化" @click="min")
+      button(type="button" :class="$style.min" :title="$t('core.toolbar.min')" @click="min")
       //- button(type="button" :class="$style.max" @click="max")
-      button(type="button" :class="$style.close" title="关闭" @click="close")
+      button(type="button" :class="$style.close" :title="$t('core.toolbar.close')" @click="close")
 </template>
 
 <script>
@@ -129,6 +129,8 @@ export default {
 <style lang="less" module>
 @import '../../assets/styles/layout.less';
 
+@control-btn-width: @height-toolbar * .5;
+
 .toolbar {
   display: flex;
   height: @height-toolbar;
@@ -138,6 +140,11 @@ export default {
   -webkit-app-region: drag;
   z-index: 2;
   position: relative;
+}
+:global(.nd) {
+  .toolbar {
+    -webkit-app-region: no-drag;
+  }
 }
 .input {
   -webkit-app-region: no-drag;
@@ -161,8 +168,10 @@ export default {
 
 .control {
   display: flex;
+  align-items: center;
   height: 100%;
   -webkit-app-region: no-drag;
+  padding: 0 @control-btn-width * 0.6;
   &:hover {
     button:before {
       opacity: 1;
@@ -171,7 +180,8 @@ export default {
 
   button {
     position: relative;
-    width: @height-toolbar;
+    width: @control-btn-width;
+    height: @control-btn-width;
     background: none;
     border: none;
     display: flex;
@@ -180,6 +190,9 @@ export default {
     outline: none;
     padding: 0;
     cursor: pointer;
+    + button {
+      margin-left: @control-btn-width * 0.4;
+    }
 
     &:after {
       content: ' ';
@@ -224,8 +237,8 @@ export default {
     content: ' ';
     width: 8px;
     height: 2px;
-    left: @height-toolbar / 2 - 4;
-    top: @height-toolbar / 2 - 1;
+    left: @control-btn-width / 2 - 4;
+    top: @control-btn-width / 2 - 1;
     background-color: #fff;
   }
 }

@@ -9,6 +9,9 @@ export default {
   setSetting(state, val) {
     state.setting = val
   },
+  setAgreePact(state) {
+    state.setting.isAgreePact = true
+  },
   setSettingVersion(state, val) {
     state.settingVersion = val
   },
@@ -39,7 +42,13 @@ export default {
     if (isUnknow !== undefined) state.version.isUnknow = isUnknow
     if (isLatestVer !== undefined) state.version.isLatestVer = isLatestVer
   },
+  setIgnoreVersion(state, version) {
+    state.setting.ignoreVersion = version
+  },
   setVolume(state, val) {
     state.setting.player.volume = val
+  },
+  setMediaDeviceId(state, val) {
+    state.setting.player.mediaDeviceId = val
   },
 }

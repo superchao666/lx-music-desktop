@@ -49,6 +49,7 @@ export default {
               size,
             }
           }
+        case 192000:
         case 128000:
           if (item.l) {
             size = sizeFormate(item.l.size)
@@ -81,7 +82,6 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit != null) this.limit = limit
     return this.musicSearch(str, page).then(result => {
-      // console.log(JSON.stringify(result))
       if (!result || result.code !== 200) return this.search(str, page, { limit }, retryNum)
       let list = this.handleResult(result.result.songs)
 
