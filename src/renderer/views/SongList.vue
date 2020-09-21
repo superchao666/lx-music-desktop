@@ -3,22 +3,20 @@
     transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
       div(:class="$style.songListDetailContent" v-if="isVisibleListDetail")
         div(:class="$style.songListHeader")
-          div(:class="$style.songListHeaderLeft")
-            img(:src="listDetail.info.img || selectListInfo.img")
+          div(:class="$style.songListHeaderLeft" :style="{ backgroundImage: 'url('+(selectListInfo.img || listDetail.info.img)+')' }")
+            //- img(:src="listDetail.info.img || selectListInfo.img")
             span(:class="$style.playNum" v-if="listDetail.info.play_count || selectListInfo.play_count") {{listDetail.info.play_count || selectListInfo.play_count}}
           div(:class="$style.songListHeaderMiddle")
             h3(:title="listDetail.info.name || selectListInfo.name") {{listDetail.info.name || selectListInfo.name}}
             p(:title="listDetail.info.desc || selectListInfo.desc") {{listDetail.info.desc || selectListInfo.desc}}
           div(:class="$style.songListHeaderRight")
-            //- material-btn(:class="$style.closeDetailButton" :disabled="detailLoading" @click="addSongListDetail") 添加
-            //- | &nbsp;
-            //- material-btn(:class="$style.closeDetailButton" :disabled="detailLoading" @click="playSongListDetail") 播放
-            //- | &nbsp;
-            material-btn(:class="$style.closeDetailButton" @click="hideListDetail") {{$t('view.song_list.back')}}
-        material-song-list(v-model="selectdData" @action="handleSongListAction" :source="source" :page="listDetail.page" :limit="listDetail.limit"
+            material-btn(:class="$style.headerRightBtn" :disabled="detailLoading" @click="playSongListDetail") {{$t('view.song_list.play_all')}}
+            material-btn(:class="$style.headerRightBtn" :disabled="detailLoading" @click="addSongListDetail") {{$t('view.song_list.add_all')}}
+            material-btn(:class="$style.headerRightBtn" @click="hideListDetail") {{$t('view.song_list.back')}}
+        material-song-list(v-model="selectedData" @action="handleSongListAction" :source="source" :page="listDetail.page" :limit="listDetail.limit"
          :total="listDetail.total" :noItem="isGetDetailFailed ? $t('view.song_list.loding_list_fail') : $t('view.song_list.loding_list')" :list="listDetail.list")
     transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
-      div(:class="$style.songListContainer" v-if="!isVisibleListDetail")
+      div(:class="$style.songListContainer" v-show="!isVisibleListDetail")
         div(:class="$style.header")
           material-tag-list(:class="$style.tagList" :list-width="listWidth" ref="tagList" :list="tagList" v-model="tagInfo")
           material-tab(:class="$style.tab" :list="sorts" item-key="id" ref="tab" item-name="name" v-model="sortId")
@@ -30,18 +28,19 @@
                 div.scroll(:class="$style.songList" v-if="sortId !== 'importSongList'" ref="dom_scrollContent")
                   ul
                     li(:class="$style.item" v-for="(item, index) in listData.list" @click="handleItemClick(index)")
-                      div(:class="$style.left")
-                        img(:src="item.img")
+                      div(:class="$style.left" :style="{ backgroundImage: 'url('+item.img+')' }")
+                        //- img(:src="item.img")
                       div(:class="$style.right" :src="item.img")
                         h4(:title="item.name") {{item.name}}
-                        p(:title="item.desc") {{item.desc}}
-                    li(:class="$style.item" style="cursor: default;" v-if="listData.list && listData.list.length && listData.list.length % 3 == 2")
+                        p(:class="$style.play_count") {{item.play_count}}
+                        p(:class="$style.author") {{item.author}}
+                    li(:class="$style.item" style="cursor: default;" v-for="i in spaceNum")
                   div(:class="$style.pagination")
                     material-pagination(:count="listData.total" :limit="listData.limit" :page="listData.page" @btn-click="handleToggleListPage")
               transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
                 div(:class="$style.importSongListContent" v-show="sortId === 'importSongList'")
-                  div(:style="{ width: '500px' }")
-                    material-search-input(v-model="importSongListText" @event="handleImportSongListEvent" big :placeholder="$t('view.song_list.input_text')")
+                  div(:style="{ width: '50%' }")
+                    material-search-input(:class="$style.searchInput" v-model="importSongListText" @event="handleImportSongListEvent" big :placeholder="$t('view.song_list.input_text')")
                       svg(version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' height='100%' viewBox='0 0 451.846 451.847' space='preserve')
                         use(xlink:href='#icon-right')
                     div(:class="$style.tips")
@@ -53,15 +52,15 @@
             div(v-show="!listData.list.length" :class="$style.noitem")
               p {{$t('view.song_list.loding_list')}}
     material-download-modal(:show="isShowDownload" :musicInfo="musicInfo" @select="handleAddDownload" @close="isShowDownload = false")
-    material-download-multiple-modal(:show="isShowDownloadMultiple" :list="selectdData" @select="handleAddDownloadMultiple" @close="isShowDownloadMultiple = false")
-    material-list-add-modal(:show="isShowListAdd" :musicInfo="musicInfo" @close="isShowListAdd = false")
-    material-list-add-multiple-modal(:show="isShowListAddMultiple" :musicList="selectdData" @close="handleListAddModalClose")
+    material-download-multiple-modal(:show="isShowDownloadMultiple" :list="selectedData" @select="handleAddDownloadMultiple" @close="isShowDownloadMultiple = false")
+    material-list-add-modal(:show="isShowListAdd" :musicInfo="musicInfo" @close="isShowListAdd = false" :list-name="listDetail.info.name")
+    material-list-add-multiple-modal(:show="isShowListAddMultiple" :musicList="selectedData" @close="handleListAddModalClose" :list-name="listDetail.info.name")
 </template>
 
 <script>
 import { mapGetters, mapMutations, mapActions } from 'vuex'
-import { scrollTo, assertApiSupport } from '../utils'
-// import music from '../utils/music'
+import { scrollTo, assertApiSupport, openUrl } from '../utils'
+import musicSdk from '../utils/music'
 export default {
   name: 'SongList',
   data() {
@@ -74,7 +73,7 @@ export default {
       source: null,
       isShowDownload: false,
       musicInfo: null,
-      selectdData: [],
+      selectedData: [],
       isShowDownloadMultiple: false,
       isToggleSource: false,
       isShowListAdd: false,
@@ -83,7 +82,7 @@ export default {
       listWidth: 645,
       isGetDetailFailed: false,
       isInitedTagListWidth: false,
-      // detailLoading: true,
+      detailLoading: false,
     }
   },
   computed: {
@@ -96,7 +95,7 @@ export default {
       switch (this.source) {
         case 'wy':
         case 'kw':
-        case 'bd':
+        // case 'bd':
         case 'tx':
         case 'mg':
         case 'kg':
@@ -111,6 +110,10 @@ export default {
     tagList() {
       let tagInfo = this.tags[this.source]
       return tagInfo ? [{ name: '热门标签', list: [...tagInfo.hotTag] }, ...tagInfo.tags] : []
+    },
+    spaceNum() {
+      let num = this.listData.list ? this.listData.list.length % 3 : 0
+      return num > 0 ? 3 - num : 0
     },
   },
   watch: {
@@ -167,14 +170,36 @@ export default {
     this.tagInfo = this.setting.songList.tagInfo
     this.sortId = this.setting.songList.sortId
     if (!this.isVisibleListDetail) this.setTagListWidth()
+    this.listenEvent()
+  },
+  beforeDestroy() {
+    this.unlistenEvent()
   },
   methods: {
     ...mapMutations(['setSongList']),
-    ...mapActions('songList', ['getTags', 'getList', 'getListDetail']),
+    ...mapActions('songList', ['getTags', 'getList', 'getListDetail', 'getListDetailAll']),
     ...mapMutations('songList', ['setVisibleListDetail', 'setSelectListInfo']),
     ...mapActions('download', ['createDownload', 'createDownloadMultiple']),
-    ...mapMutations('list', ['listAdd', 'listAddMultiple']),
-    ...mapMutations('player', ['setList']),
+    ...mapMutations('list', ['listAdd', 'listAddMultiple', 'createUserList']),
+    ...mapMutations('player', {
+      setPlayList: 'setList',
+    }),
+    listenEvent() {
+      window.eventHub.$on('key_backspace_down', this.handle_key_backspace_down)
+    },
+    unlistenEvent() {
+      window.eventHub.$off('key_backspace_down', this.handle_key_backspace_down)
+    },
+    handle_key_backspace_down({ event }) {
+      if (!this.isVisibleListDetail ||
+        event.repeat ||
+        this.isShowDownload ||
+        this.isShowDownloadMultiple ||
+        this.isShowListAdd ||
+        this.isShowListAddMultiple ||
+        event.target.classList.contains('key-bind')) return
+      this.hideListDetail()
+    },
     handleListBtnClick(info) {
       switch (info.action) {
         case 'download':
@@ -197,24 +222,59 @@ export default {
           break
       }
     },
-    testPlay(index) {
-      let targetSong
-      if (index == null) {
-        targetSong = this.selectdData[0]
-        this.listAddMultiple({ id: 'default', list: this.filterList(this.selectdData) })
-        this.resetSelect()
-      } else {
-        targetSong = this.listDetail.list[index]
-        if (!this.assertApiSupport(targetSong.source)) return
-        this.listAdd({ id: 'default', musicInfo: targetSong })
+    handleMenuClick(info) {
+      let minfo
+      let url
+      switch (info.action) {
+        case 'download':
+          if (this.selectedData.length) {
+            this.isShowDownloadMultiple = true
+          } else {
+            this.musicInfo = this.listDetail.list[info.index]
+            this.$nextTick(() => {
+              this.isShowDownload = true
+            })
+          }
+          break
+        case 'play':
+          if (this.selectedData.length) {
+            this.listAddMultiple({ id: 'default', list: this.filterList(this.selectedData) })
+            this.resetSelect()
+          }
+          this.testPlay(info.index)
+          break
+        case 'search':
+          this.handleSearch(info.index)
+          break
+        case 'addTo':
+          if (this.selectedData.length) {
+            this.$nextTick(() => {
+              this.isShowListAddMultiple = true
+            })
+          } else {
+            this.musicInfo = this.listDetail.list[info.index]
+            this.$nextTick(() => {
+              this.isShowListAdd = true
+            })
+          }
+          break
+        case 'sourceDetail':
+          minfo = this.listDetail.list[info.index]
+          url = musicSdk[minfo.source].getMusicDetailPageUrl(minfo)
+          if (!url) return
+          openUrl(url)
       }
+    },
+    testPlay(index) {
+      let targetSong = this.listDetail.list[index]
+      // if (!this.assertApiSupport(targetSong.source)) return
+      this.listAdd({ id: 'default', musicInfo: targetSong })
       let targetIndex = this.defaultList.list.findIndex(
         s => s.songmid === targetSong.songmid,
       )
       if (targetIndex > -1) {
-        this.setList({
-          list: this.defaultList.list,
-          listId: this.defaultList.id,
+        this.setPlayList({
+          list: this.defaultList,
           index: targetIndex,
         })
       }
@@ -248,7 +308,7 @@ export default {
     },
     handleAddDownloadMultiple(type) {
       if (this.source == 'xm' && type == 'flac') type = 'wav'
-      this.createDownloadMultiple({ list: this.filterList(this.selectdData), type })
+      this.createDownloadMultiple({ list: this.filterList(this.selectedData), type })
       this.resetSelect()
       this.isShowDownloadMultiple = false
     },
@@ -260,27 +320,29 @@ export default {
         this.handleGetListDetail(this.selectListInfo.id, 1)
       })
     },
-    handleFlowBtnClick(action) {
-      switch (action) {
-        case 'download':
-          this.isShowDownloadMultiple = true
-          break
-        case 'play':
-          this.testPlay()
-          break
-        case 'add':
-          this.isShowListAddMultiple = true
-          break
-      }
-    },
+    // handleFlowBtnClick(action) {
+    //   switch (action) {
+    //     case 'download':
+    //       this.isShowDownloadMultiple = true
+    //       break
+    //     case 'play':
+    //       this.testPlay()
+    //       break
+    //     case 'add':
+    //       this.isShowListAddMultiple = true
+    //       break
+    //   }
+    // },
     handleSongListAction({ action, data }) {
       switch (action) {
         case 'listBtnClick':
           return this.handleListBtnClick(data)
+        case 'menuClick':
+          return this.handleMenuClick(data)
         case 'togglePage':
           return this.handleToggleListDetailPage(data)
-        case 'flowBtnClick':
-          return this.handleFlowBtnClick(data)
+        // case 'flowBtnClick':
+        //   return this.handleFlowBtnClick(data)
         case 'testPlay':
           return this.testPlay(data)
         case 'search':
@@ -288,7 +350,7 @@ export default {
       }
     },
     resetSelect() {
-      this.selectdData = []
+      this.selectedData = []
     },
     hideListDetail() {
       setTimeout(async() => {
@@ -340,15 +402,28 @@ export default {
     assertApiSupport(source) {
       return assertApiSupport(source)
     },
-    /*     addSongListDetail() {
-      // this.detailLoading = true
-      // this.getListDetailAll(this.selectListInfo.id).then(() => {
-      //   this.detailLoading = false
-      // })
+    async fetchList() {
+      this.detailLoading = true
+      const list = await this.getListDetailAll(this.selectListInfo.id)
+      this.detailLoading = false
+      return list
     },
-    playSongListDetail() {
-
-    }, */
+    async addSongListDetail() {
+      if (!this.listDetail.info.name) return
+      const list = await this.fetchList()
+      this.createUserList({ name: this.listDetail.info.name, id: `${this.listDetail.source}__${this.listDetail.id}`, list })
+    },
+    async playSongListDetail() {
+      if (!this.listDetail.info.name) return
+      const list = await this.fetchList()
+      this.setPlayList({
+        list: {
+          list,
+          id: null,
+        },
+        index: 0,
+      })
+    },
   },
 }
 </script>
@@ -408,11 +483,14 @@ export default {
   flex: none;
   margin-left: 5px;
   width: 60px;
+  height: 60px;
   position: relative;
-  img {
-    max-width: 100%;
-    max-height: 100%;
-  }
+  overflow: hidden;
+  border-radius: 4px;
+  background-position: center;
+  background-size: cover;
+  opacity: .9;
+
   .play-num {
     position: absolute;
     bottom: 0;
@@ -425,6 +503,10 @@ export default {
     text-align: right;
     .mixin-ellipsis-1;
   }
+}
+
+.searchInput {
+  width: 100%;
 }
 
 .song-list-header-middle {
@@ -447,6 +529,17 @@ export default {
   display: flex;
   align-items: center;
   padding-right: 15px;
+}
+.header-right-btn {
+  border-radius: 0;
+  &:first-child {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+  }
+  &:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+  }
 }
 
 .song-list-detail-content {
@@ -482,35 +575,45 @@ export default {
 }
 .left {
   flex: none;
-  width: 66px;
-  height: 66px;
+  width: 88px;
+  height: 88px;
   display: flex;
-
-  img {
-    max-width: 100%;
-    max-height: 100%;
-  }
+  background-position: center;
+  background-size: cover;
+  border-radius: 4px;
+  overflow: hidden;
+  opacity: .9;
+  // box-shadow: 0 0 2px 0 rgba(0,0,0,.2);
 }
 .right {
   flex: auto;
-  padding: 5px 15px 5px 7px;
+  padding: 3px 15px 5px 7px;
   overflow: hidden;
   h4 {
     font-size: 14px;
+    height: 2.6em;
     text-align: justify;
-    line-height: 1.2;
-    .mixin-ellipsis-1;
-  }
-  p {
-    margin-top: 12px;
-    font-size: 12px;
+    line-height: 1.3;
     .mixin-ellipsis-2;
-    text-align: justify;
-    line-height: 1.2;
-    // text-indent: 24px;
-
-    color: @color-theme_2-font-label;
   }
+}
+.play_count {
+  margin-top: 12px;
+  font-size: 12px;
+  .mixin-ellipsis-1;
+  text-align: justify;
+  line-height: 1.2;
+  // text-indent: 24px;
+  color: @color-theme_2-font-label;
+}
+.author {
+  margin-top: 6px;
+  font-size: 12px;
+  .mixin-ellipsis-1;
+  text-align: justify;
+  line-height: 1.2;
+  // text-indent: 24px;
+  color: @color-theme_2-font-label;
 }
 .pagination {
   text-align: center;

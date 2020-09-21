@@ -56,6 +56,10 @@ export default {
       type: Number,
       default: 7,
     },
+    maxPage: {
+      type: Number,
+      default: null,
+    },
   },
   data() {
     return {
@@ -65,7 +69,7 @@ export default {
   computed: {
     ...mapGetters(['userInfo']),
     allPage() {
-      return Math.ceil(this.count / this.limit) || 1
+      return this.maxPage == null ? Math.ceil(this.count / this.limit) || 1 : this.maxPage
     },
     pageEvg() {
       return Math.floor(this.btnLength / 2)
@@ -118,7 +122,7 @@ export default {
   display: inline-block;
   background-color: @color-pagination-background;
   // border-top-left-radius: 8px;
-  border-radius: 4px;
+  border-radius: @radius-border;
   ul {
     display: flex;
     flex-flow: row nowrap;
@@ -170,15 +174,15 @@ export default {
       }
       &:first-child {
         span, button {
-          border-top-left-radius: 4px;
-          border-bottom-left-radius: 4px;
+          border-top-left-radius: @radius-border;
+          border-bottom-left-radius: @radius-border;
         }
         // border-right: .0625rem solid @theme_line;
       }
       &:last-child {
         span, button {
-          border-top-right-radius: 4px;
-          border-bottom-right-radius: 4px;
+          border-top-right-radius: @radius-border;
+          border-bottom-right-radius: @radius-border;
         }
         // border-right: .0625rem solid @theme_line;
       }

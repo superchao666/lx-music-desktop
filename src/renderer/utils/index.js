@@ -1,9 +1,8 @@
 import fs from 'fs'
-import { shell, clipboard } from 'electron'
 import path from 'path'
-import os from 'os'
+import { shell, clipboard } from 'electron'
 import crypto from 'crypto'
-import { rendererSend, rendererInvoke } from '../../common/ipc'
+import { rendererSend, rendererInvoke, NAMES } from '../../common/ipc'
 
 /**
  * 获取两个数之间的随机整数，大于等于min，小于max
@@ -55,15 +54,8 @@ const easeInOutQuad = (t, b, c, d) => {
   t--
   return (-c / 2) * (t * (t - 2) - 1) + b
 }
-/**
- * 设置滚动条位置
- * @param {*} element 要设置滚动的容器 dom
- * @param {*} to 滚动的目标位置
- * @param {*} duration 滚动完成时间 ms
- * @param {*} fn 滚动完成后的回调
- */
-export const scrollTo = (element, to, duration = 300, fn = () => {}) => {
-  if (!element) return
+const handleScroll = (element, to, duration = 300, fn = () => {}) => {
+  if (!element) return fn()
   const start = element.scrollTop || element.scrollY || 0
   let cancel = false
   if (to > start) {
@@ -99,6 +91,31 @@ export const scrollTo = (element, to, duration = 300, fn = () => {}) => {
     cancel = true
   }
 }
+/**
+ * 设置滚动条位置
+ * @param {*} element 要设置滚动的容器 dom
+ * @param {*} to 滚动的目标位置
+ * @param {*} duration 滚动完成时间 ms
+ * @param {*} fn 滚动完成后的回调
+ * @param {*} delay 延迟执行时间
+ */
+export const scrollTo = (element, to, duration = 300, fn = () => {}, delay) => {
+  let cancelFn
+  let timeout
+  if (delay) {
+    let scrollCancelFn
+    cancelFn = () => {
+      timeout == null ? scrollCancelFn && scrollCancelFn() : clearTimeout(timeout)
+    }
+    timeout = setTimeout(() => {
+      timeout = null
+      scrollCancelFn = handleScroll(element, to, duration, fn, delay)
+    }, delay)
+  } else {
+    cancelFn = handleScroll(element, to, duration, fn, delay)
+  }
+  return cancelFn
+}
 
 /**
  * 检查路径是否存在
@@ -115,13 +132,13 @@ export const checkPath = (path) => new Promise(resolve => {
  * 选择路径
  * @param {*} 选项
  */
-export const selectDir = options => rendererInvoke('selectDir', options)
+export const selectDir = options => rendererInvoke(NAMES.mainWindow.select_dir, options)
 
 /**
  * 打开保存对话框
  * @param {*} 选项
  */
-export const openSaveDir = options => rendererInvoke('showSaveDialog', options)
+export const openSaveDir = options => rendererInvoke(NAMES.mainWindow.show_save_dialog, options)
 
 /**
  * 在资源管理器中打开目录
@@ -131,154 +148,49 @@ export const openDirInExplorer = dir => {
   shell.showItemInFolder(dir)
 }
 
-export const checkVersion = (currentVer, targetVer) => {
-  // console.log(currentVer)
-  // console.log(targetVer)
-  currentVer = currentVer.split('.')
-  targetVer = targetVer.split('.')
-  let maxLen = Math.max(currentVer.length, targetVer.length)
-  if (currentVer.length < maxLen) {
-    for (let index = 0, len = maxLen - currentVer.length; index < len; index++) {
-      currentVer.push(0)
-    }
+// https://stackoverflow.com/a/53387532
+export const compareVer = (currentVer, targetVer) => {
+  // treat non-numerical characters as lower version
+  // replacing them with a negative number based on charcode of each character
+  const fix = s => `.${s.toLowerCase().charCodeAt(0) - 2147483647}.`
+
+  currentVer = ('' + currentVer).replace(/[^0-9.]/g, fix).split('.')
+  targetVer = ('' + targetVer).replace(/[^0-9.]/g, fix).split('.')
+  let c = Math.max(currentVer.length, targetVer.length)
+  for (let i = 0; i < c; i++) {
+    // convert to integer the most efficient way
+    currentVer[i] = ~~currentVer[i]
+    targetVer[i] = ~~targetVer[i]
+    if (currentVer[i] > targetVer[i]) return 1
+    else if (currentVer[i] < targetVer[i]) return -1
   }
-  if (targetVer.length < maxLen) {
-    for (let index = 0, len = maxLen - targetVer.length; index < len; index++) {
-      targetVer.push(0)
-    }
-  }
-  for (let index = 0; index < currentVer.length; index++) {
-    if (parseInt(currentVer[index]) < parseInt(targetVer[index])) return true
-    if (parseInt(currentVer[index]) > parseInt(targetVer[index])) return false
-  }
-  return false
+  return 0
 }
 
 export const isObject = item => item && typeof item === 'object' && !Array.isArray(item)
 
 /**
  * 对象深度合并
- * 注意：循环引用的对象会出现死循环
  * @param  {} target 要合并源对象
  * @param  {} source 要合并目标对象
  */
-export const objectDeepMerge = (target, source) => {
+export const objectDeepMerge = (target, source, mergedObj) => {
+  if (!mergedObj) {
+    mergedObj = new Set()
+    mergedObj.add(target)
+  }
   let base = {}
   Object.keys(source).forEach(item => {
-    if (Array.isArray(source[item])) {
-      let arr = Array.isArray(target[item]) ? target[item] : []
-      target[item] = arr.concat(source[item])
-      return
-    } else if (isObject(source[item])) {
+    if (isObject(source[item])) {
+      if (mergedObj.has(source[item])) return
       if (!isObject(target[item])) target[item] = {}
-      objectDeepMerge(target[item], source[item])
+      mergedObj.add(source[item])
+      objectDeepMerge(target[item], source[item], mergedObj)
       return
     }
     base[item] = source[item]
   })
   Object.assign(target, base)
-}
-
-/**
- * 升级设置
- * @param {*} setting
- */
-export const updateSetting = (setting, version) => {
-  const defaultVersion = '1.0.23'
-  if (!version) {
-    if (setting) {
-      version = setting.version
-      delete setting.version
-    }
-  }
-  const defaultSetting = {
-    player: {
-      togglePlayMethod: 'listLoop',
-      highQuality: false,
-      isShowTaskProgess: true,
-      volume: 1,
-      mediaDeviceId: 'default',
-    },
-    list: {
-      isShowAlbumName: true,
-      isShowSource: false,
-      scroll: {
-        enable: true,
-        locations: {},
-      },
-    },
-    download: {
-      savePath: path.join(os.homedir(), 'Desktop'),
-      fileName: '歌名 - 歌手',
-      maxDownloadNum: 3,
-      isDownloadLrc: false,
-      isEmbedPic: true,
-    },
-    leaderboard: {
-      source: 'kw',
-      tabId: 'kwbiaosb',
-    },
-    songList: {
-      source: 'kg',
-      sortId: '5',
-      tagInfo: {
-        name: '默认',
-        id: null,
-      },
-    },
-    odc: {
-      isAutoClearSearchInput: false,
-      isAutoClearSearchList: false,
-    },
-    search: {
-      searchSource: 'kw',
-      tempSearchSource: 'kw',
-      isShowHotSearch: false,
-      isShowHistorySearch: false,
-      isFocusSearchBox: false,
-    },
-    network: {
-      proxy: {
-        enable: false,
-        host: '',
-        port: '',
-        username: '',
-        password: '',
-      },
-    },
-    tray: {
-      isShow: false,
-      isToTray: false,
-    },
-    windowSizeId: 2,
-    themeId: 0,
-    langId: 'cns',
-    sourceId: 'kw',
-    apiSource: 'temp',
-    sourceNameType: 'alias',
-    randomAnimate: true,
-    ignoreVersion: null,
-    isAgreePact: false,
-  }
-
-  // 使用新年皮肤
-  if (new Date().getMonth() < 2) defaultSetting.themeId = 9
-
-  const overwriteSetting = {
-
-  }
-
-
-  if (!setting) {
-    setting = defaultSetting
-  } else if (checkVersion(version, defaultVersion)) {
-    objectDeepMerge(defaultSetting, setting)
-    objectDeepMerge(defaultSetting, overwriteSetting)
-    setting = defaultSetting
-  }
-  if (setting.apiSource != 'temp') setting.apiSource = 'test' // 强制设置回 test 接口源
-
-  return { setting, version: defaultVersion }
 }
 
 /**
@@ -322,7 +234,7 @@ export const clipboardReadText = str => clipboard.readText()
  * @param {*} meta
  */
 export const setMeta = (filePath, meta) => {
-  rendererSend('setMusicMeta', { filePath, meta })
+  rendererSend(NAMES.mainWindow.set_music_meta, { filePath, meta })
 }
 
 /**
@@ -406,23 +318,22 @@ export const asyncSetArray = (from, to, num = 100) => new Promise(resolve => {
   })
 })
 
-
 /**
  * 获取缓存大小
  */
-export const getCacheSize = () => rendererInvoke('getCacheSize')
+export const getCacheSize = () => rendererInvoke(NAMES.mainWindow.get_cache_size)
 
 /**
  * 清除缓存
  */
-export const clearCache = () => rendererInvoke('clearCache')
+export const clearCache = () => rendererInvoke(NAMES.mainWindow.clear_cache)
 
 /**
  * 设置窗口大小
  * @param {*} width
  * @param {*} height
  */
-export const setWindowSize = (width, height) => rendererSend('setWindowSize', { width, height })
+export const setWindowSize = (width, height) => rendererSend(NAMES.mainWindow.set_window_size, { width, height })
 
 
 export const getProxyInfo = () => window.globalObj.proxy.enable
@@ -431,3 +342,22 @@ export const getProxyInfo = () => window.globalObj.proxy.enable
 
 
 export const assertApiSupport = source => window.globalObj.qualityList[source] != undefined
+
+export const getSetting = () => rendererInvoke(NAMES.mainWindow.get_setting)
+export const saveSetting = () => rendererInvoke(NAMES.mainWindow.set_app_setting)
+
+export const getPlayList = () => rendererInvoke(NAMES.mainWindow.get_playlist).catch(error => {
+  rendererInvoke(NAMES.mainWindow.get_data_path).then(dataPath => {
+    let filePath = path.join(dataPath, 'playList.json.bak')
+    rendererInvoke(NAMES.mainWindow.show_dialog, {
+      type: 'error',
+      message: window.i18n.t('store.state.load_list_file_error_title'),
+      detail: window.i18n.t('store.state.load_list_file_error_detail', {
+        path: filePath,
+        detail: error.message,
+      }),
+    }).then(() => openDirInExplorer(filePath))
+  })
+  return rendererInvoke(NAMES.mainWindow.get_playlist, true)
+})
+

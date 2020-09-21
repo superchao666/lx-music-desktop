@@ -1,52 +1,55 @@
 <template lang="pug">
 div(:class="$style.songList")
   transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
-    div(v-show="list.length" :class="$style.list")
+    div(:class="$style.list")
       div(:class="$style.thead")
         table
           thead
             tr
-              th.nobreak.center(style="width: 10px;") #
-              th.nobreak(style="width: 25%;") {{$t('material.song_list.name')}}
-              th.nobreak(style="width: 20%;") {{$t('material.song_list.singer')}}
-              th.nobreak(style="width: 20%;") {{$t('material.song_list.album')}}
-              th.nobreak(style="width: 20%;") {{$t('material.song_list.action')}}
-              th.nobreak(style="width: 10%;") {{$t('material.song_list.time')}}
-      div.scroll(:class="$style.tbody" ref="dom_scrollContent")
-        table
-          tbody(@contextmenu="handleContextMenu" ref="dom_tbody")
-            tr(v-for='(item, index) in list' :key='item.songmid' @click="handleDoubleClick($event, index)")
-              td.nobreak.center(style="width: 37px;" :class="$style.noSelect" @click.stop) {{index + 1}}
-              td.break(style="width: 25%;")
-                span.select {{item.name}}
-                span.badge.badge-theme-success(:class="[$style.labelQuality, $style.noSelect]" v-if="item._types.ape || item._types.flac || item._types.wav") {{$t('material.song_list.lossless')}}
-                span.badge.badge-theme-info(:class="[$style.labelQuality, $style.noSelect]" v-else-if="item._types['320k']") {{$t('material.song_list.high_quality')}}
-              td.break(style="width: 20%;")
-                span.select {{item.singer}}
-              td.break(style="width: 20%;")
-                span.select {{item.albumName}}
-              td(style="width: 20%; padding-left: 0; padding-right: 0;")
-                material-list-buttons(:index="index" :search-btn="true"
-                  :remove-btn="false" @btn-click="handleListBtnClick"
-                  :listAdd-btn="assertApiSupport(item.source)"
-                  :play-btn="assertApiSupport(item.source)"
-                  :download-btn="assertApiSupport(item.source)")
-                //- button.btn-info(type='button' v-if="item._types['128k'] || item._types['192k'] || item._types['320k'] || item._types.flac" @click.stop='openDownloadModal(index)') 下载
-                //- button.btn-secondary(type='button' v-if="item._types['128k'] || item._types['192k'] || item._types['320k']" @click.stop='testPlay(index)') 试听
-                //- button.btn-success(type='button' v-if="(item._types['128k'] || item._types['192k'] || item._types['320k']) && userInfo" @click.stop='showListModal(index)') ＋
-              td(style="width: 10%;")
-                span(:class="[$style.time, $style.noSelect]") {{item.interval || '--/--'}}
-        div(:class="$style.pagination")
-          material-pagination(:count="total" :limit="limit" :page="page" @btn-click="handleTogglePage")
-  transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
-    div(v-show="!list.length" :class="$style.noitem")
-      p(v-html="noItem")
-  material-flow-btn(:show="isShowEditBtn && assertApiSupport(source)" :remove-btn="false" @btn-click="handleFlowBtnClick")
+              th.nobreak.center(:style="{ width: rowWidth.r1 }") #
+              th.nobreak(:style="{ width: rowWidth.r2 }") {{$t('material.song_list.name')}}
+              th.nobreak(:style="{ width: rowWidth.r3 }") {{$t('material.song_list.singer')}}
+              th.nobreak(:style="{ width: rowWidth.r4 }") {{$t('material.song_list.album')}}
+              th.nobreak(:style="{ width: rowWidth.r5 }") {{$t('material.song_list.time')}}
+              th.nobreak(:style="{ width: rowWidth.r6 }") {{$t('material.song_list.action')}}
+      div(:class="$style.content")
+        div.scroll(v-show="list.length" :class="$style.tbody" ref="dom_scrollContent")
+          table
+            tbody(@contextmenu.capture="handleContextMenu" ref="dom_tbody")
+              tr(v-for='(item, index) in list' :key='item.songmid' @contextmenu="handleListItemRigthClick($event, index)" @click="handleDoubleClick($event, index)")
+                td.nobreak.center(:style="{ width: rowWidth.r1 }" style="padding-left: 3px; padding-right: 3px;" :class="$style.noSelect" @click.stop) {{index + 1}}
+                td.break(:style="{ width: rowWidth.r2 }")
+                  span.select {{item.name}}
+                  span.badge.badge-theme-success(:class="[$style.labelQuality, $style.noSelect]" v-if="item._types.ape || item._types.flac || item._types.wav") {{$t('material.song_list.lossless')}}
+                  span.badge.badge-theme-info(:class="[$style.labelQuality, $style.noSelect]" v-else-if="item._types['320k']") {{$t('material.song_list.high_quality')}}
+                td.break(:style="{ width: rowWidth.r3 }")
+                  span.select {{item.singer}}
+                td.break(:style="{ width: rowWidth.r4 }")
+                  span.select {{item.albumName}}
+                td(:style="{ width: rowWidth.r5 }")
+                  span(:class="[$style.time, $style.noSelect]") {{item.interval || '--/--'}}
+                td(:style="{ width: rowWidth.r6 }" style="padding-left: 0; padding-right: 0;")
+                  material-list-buttons(:index="index" :class="$style.btns"
+                    :remove-btn="false" @btn-click="handleListBtnClick"
+                    :listAdd-btn="assertApiSupport(item.source)"
+                    :play-btn="assertApiSupport(item.source)"
+                    :download-btn="assertApiSupport(item.source)")
+                  //- button.btn-info(type='button' v-if="item._types['128k'] || item._types['192k'] || item._types['320k'] || item._types.flac" @click.stop='openDownloadModal(index)') 下载
+                  //- button.btn-secondary(type='button' v-if="item._types['128k'] || item._types['192k'] || item._types['320k']" @click.stop='testPlay(index)') 试听
+                  //- button.btn-success(type='button' v-if="(item._types['128k'] || item._types['192k'] || item._types['320k']) && userInfo" @click.stop='showListModal(index)') ＋
+          div(:class="$style.pagination")
+            material-pagination(:count="total" :limit="limit" :page="page" @btn-click="handleTogglePage")
+        transition(enter-active-class="animated-fast fadeIn" leave-active-class="animated-fast fadeOut")
+          div(v-show="!list.length" :class="$style.noitem")
+            p(v-html="noItem")
+  //- material-flow-btn(:show="isShowEditBtn && assertApiSupport(source)" :remove-btn="false" @btn-click="handleFlowBtnClick")
+  material-menu(:menus="listItemMenu" :location="listMenu.menuLocation" item-name="name" :isShow="listMenu.isShowItemMenu" @menu-click="handleListItemMenuClick")
 </template>
 
 <script>
 import { mapGetters } from 'vuex'
 import { scrollTo, clipboardWriteText, assertApiSupport } from '../../utils'
+import musicSdk from '../../utils/music'
 export default {
   name: 'MaterialSongList',
   model: {
@@ -83,26 +86,68 @@ export default {
       type: String,
       default: '列表加载中...',
     },
+    rowWidth: {
+      type: Object,
+      default() {
+        return {
+          r1: '5%',
+          r2: 'auto',
+          r3: '22%',
+          r4: '22%',
+          r5: '8%',
+          r6: '13%',
+        }
+      },
+    },
   },
   computed: {
     ...mapGetters(['setting']),
+    listItemMenu() {
+      return [
+        {
+          name: this.$t('material.song_list.list_play'),
+          action: 'play',
+          disabled: !this.listMenu.itemMenuControl.play,
+        },
+        {
+          name: this.$t('material.song_list.list_download'),
+          action: 'download',
+          disabled: !this.listMenu.itemMenuControl.download,
+        },
+        {
+          name: this.$t('material.song_list.list_search'),
+          action: 'search',
+          disabled: !this.listMenu.itemMenuControl.search,
+        },
+        {
+          name: this.$t('material.song_list.list_add_to'),
+          action: 'addTo',
+          disabled: !this.listMenu.itemMenuControl.addTo,
+        },
+        {
+          name: this.$t('material.song_list.list_source_detail'),
+          action: 'sourceDetail',
+          disabled: !this.listMenu.itemMenuControl.sourceDetail,
+        },
+      ]
+    },
   },
   watch: {
-    selectdList(n) {
-      const len = n.length
-      if (len) {
-        this.isShowEditBtn = true
-      } else {
-        this.isShowEditBtn = false
-      }
-    },
+    // selectdList(n) {
+    //   const len = n.length
+    //   if (len) {
+    //     this.isShowEditBtn = true
+    //   } else {
+    //     this.isShowEditBtn = false
+    //   }
+    // },
     selectdData(n) {
       const len = n.length
       if (len) {
-        this.isShowEditBtn = true
+        // this.isShowEditBtn = true
         this.selectdList = [...n]
       } else {
-        this.isShowEditBtn = false
+        // this.isShowEditBtn = false
         this.removeAllSelect()
       }
     },
@@ -121,8 +166,21 @@ export default {
       keyEvent: {
         isShiftDown: false,
         isModDown: false,
-        isADown: false,
-        aDownTimeout: null,
+      },
+      lastSelectIndex: 0,
+      listMenu: {
+        isShowItemMenu: false,
+        itemMenuControl: {
+          play: true,
+          addTo: true,
+          download: true,
+          search: true,
+          sourceDetail: true,
+        },
+        menuLocation: {
+          x: 0,
+          y: 0,
+        },
       },
     }
   },
@@ -139,7 +197,6 @@ export default {
       window.eventHub.$on('key_mod_down', this.handle_key_mod_down)
       window.eventHub.$on('key_mod_up', this.handle_key_mod_up)
       window.eventHub.$on('key_mod+a_down', this.handle_key_mod_a_down)
-      window.eventHub.$on('key_mod+a_up', this.handle_key_mod_a_up)
     },
     unlistenEvent() {
       window.eventHub.$off('key_shift_down', this.handle_key_shift_down)
@@ -147,7 +204,6 @@ export default {
       window.eventHub.$off('key_mod_down', this.handle_key_mod_down)
       window.eventHub.$off('key_mod_up', this.handle_key_mod_up)
       window.eventHub.$off('key_mod+a_down', this.handle_key_mod_a_down)
-      window.eventHub.$off('key_mod+a_up', this.handle_key_mod_a_up)
     },
     handle_key_shift_down() {
       if (!this.keyEvent.isShiftDown) this.keyEvent.isShiftDown = true
@@ -161,26 +217,12 @@ export default {
     handle_key_mod_up() {
       if (this.keyEvent.isModDown) this.keyEvent.isModDown = false
     },
-    handle_key_mod_a_down() {
-      if (!this.keyEvent.isADown) {
-        this.keyEvent.isModDown = false
-        this.keyEvent.isADown = true
-        this.handleSelectAllData()
-        if (this.keyEvent.aDownTimeout) clearTimeout(this.keyEvent.aDownTimeout)
-        this.keyEvent.aDownTimeout = setTimeout(() => {
-          this.keyEvent.aDownTimeout = null
-          this.keyEvent.isADown = false
-        }, 500)
-      }
-    },
-    handle_key_mod_a_up() {
-      if (this.keyEvent.isADown) {
-        if (this.keyEvent.aDownTimeout) {
-          clearTimeout(this.keyEvent.aDownTimeout)
-          this.keyEvent.aDownTimeout = null
-        }
-        this.keyEvent.isADown = false
-      }
+    handle_key_mod_a_down({ event }) {
+      if (event.target.tagName == 'INPUT') return
+      event.preventDefault()
+      if (event.repeat) return
+      this.keyEvent.isModDown = false
+      this.handleSelectAllData()
     },
     handleDoubleClick(event, index) {
       if (event.target.classList.contains('select')) return
@@ -202,7 +244,7 @@ export default {
     handleSelectData(event, clickIndex) {
       if (this.keyEvent.isShiftDown) {
         if (this.selectdList.length) {
-          let lastSelectIndex = this.list.indexOf(this.selectdList[this.selectdList.length - 1])
+          let lastSelectIndex = this.lastSelectIndex
           this.removeAllSelect()
           if (lastSelectIndex != clickIndex) {
             let isNeedReverse = false
@@ -223,8 +265,10 @@ export default {
         } else {
           event.currentTarget.classList.add('active')
           this.selectdList.push(this.list[clickIndex])
+          this.lastSelectIndex = clickIndex
         }
       } else if (this.keyEvent.isModDown) {
+        this.lastSelectIndex = clickIndex
         let item = this.list[clickIndex]
         let index = this.selectdList.indexOf(item)
         if (index < 0) {
@@ -263,9 +307,9 @@ export default {
     handleTogglePage(page) {
       this.emitEvent('togglePage', page)
     },
-    handleFlowBtnClick(action) {
-      this.emitEvent('flowBtnClick', action)
-    },
+    // handleFlowBtnClick(action) {
+    //   this.emitEvent('flowBtnClick', action)
+    // },
     emitEvent(action, data) {
       this.$emit('action', { action, data })
     },
@@ -274,6 +318,7 @@ export default {
     },
     handleContextMenu(event) {
       if (!event.target.classList.contains('select')) return
+      event.stopImmediatePropagation()
       let classList = this.$refs.dom_scrollContent.classList
       classList.add(this.$style.copying)
       window.requestAnimationFrame(() => {
@@ -286,6 +331,36 @@ export default {
     },
     assertApiSupport(source) {
       return assertApiSupport(source)
+    },
+    handleListItemRigthClick(event, index) {
+      this.listMenu.itemMenuControl.sourceDetail = !!musicSdk[this.list[index].source].getMusicDetailPageUrl
+      this.listMenu.itemMenuControl.play =
+        this.listMenu.itemMenuControl.download =
+        this.assertApiSupport(this.list[index].source)
+      let dom_selected = this.$refs.dom_tbody.querySelector('tr.selected')
+      if (dom_selected) dom_selected.classList.remove('selected')
+      this.$refs.dom_tbody.querySelectorAll('tr')[index].classList.add('selected')
+      let dom_td = event.target.closest('td')
+      this.listMenu.rightClickItemIndex = index
+      this.listMenu.menuLocation.x = dom_td.offsetLeft + event.offsetX
+      this.listMenu.menuLocation.y = dom_td.offsetParent.offsetTop + dom_td.offsetTop + event.offsetY - this.$refs.dom_scrollContent.scrollTop
+      this.$nextTick(() => {
+        this.listMenu.isShowItemMenu = true
+      })
+    },
+    hideListMenu() {
+      let dom_selected = this.$refs.dom_tbody && this.$refs.dom_tbody.querySelector('tr.selected')
+      if (dom_selected) dom_selected.classList.remove('selected')
+      this.listMenu.isShowItemMenu = false
+      this.listMenu.rightClickItemIndex = -1
+    },
+    handleListItemMenuClick(action) {
+      // console.log(action)
+      let index = this.listMenu.rightClickItemIndex
+      this.hideListMenu()
+      if (!action) return
+
+      this.emitEvent('menuClick', { action: action.action, index })
     },
   },
 }
@@ -308,6 +383,7 @@ export default {
   overflow: hidden;
   display: flex;
   flex-flow: column nowrap;
+  height: 100%;
 }
 .thead {
   flex: none;
@@ -316,8 +392,13 @@ export default {
     // padding-left: 10px;
   }
 }
-.tbody {
+.content {
   flex: auto;
+  min-height: 0;
+  position: relative;
+}
+.tbody {
+  height: 100%;
   overflow-y: auto;
   td {
     font-size: 12px;

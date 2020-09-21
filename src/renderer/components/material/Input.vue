@@ -1,7 +1,7 @@
 <template lang="pug">
   input(:class="$style.input" :type="type" :placeholder="placeholder" v-model.trim="text" :disabled="disabled"
     @focus="$emit('focus', $event)" @blur="$emit('blur', $event)" @input="$emit('input', text)" @change="$emit('change', text)"
-    @keyup.enter="submit")
+    @keyup.enter="$emit('submit', text)")
 </template>
 
 <script>
@@ -55,6 +55,7 @@ export default {
   outline: none;
   transition: background-color 0.2s ease;
   background-color: @color-btn-background;
+  font-size: 13.3px;
   &[disabled] {
     opacity: .4;
   }

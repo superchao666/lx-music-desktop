@@ -6,14 +6,16 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
   return
 }
+if (!global.modules) global.modules = {}
 app.on('second-instance', (event, argv, cwd) => {
-  if (global.mainWindow) {
-    if (global.mainWindow.isMinimized()) {
-      global.mainWindow.restore()
-    } else if (global.mainWindow.isVisible()) {
-      global.mainWindow.focus()
+  if (global.modules.mainWindow) {
+    if (global.modules.mainWindow.isMinimized()) {
+      global.modules.mainWindow.restore()
+    }
+    if (global.modules.mainWindow.isVisible()) {
+      global.modules.mainWindow.focus()
     } else {
-      global.mainWindow.show()
+      global.modules.mainWindow.show()
     }
   } else {
     app.quit()
@@ -21,7 +23,20 @@ app.on('second-instance', (event, argv, cwd) => {
 })
 
 const isDev = global.isDev = process.env.NODE_ENV !== 'production'
+require('./env')
 const { navigationUrlWhiteList } = require('../common/config')
+const { getWindowSizeInfo } = require('./utils')
+const { isMac, isLinux, initSetting, initHotKey } = require('../common/utils')
+
+
+// https://github.com/electron/electron/issues/22691
+app.commandLine.appendSwitch('wm-window-animations-disabled')
+
+// https://github.com/electron/electron/issues/18397
+// 开发模式下为true时 多次引入native模块会导致渲染进程卡死
+// https://github.com/electron/electron/issues/22791
+app.allowRendererProcessReuse = !isDev
+
 
 app.on('web-contents-created', (event, contents) => {
   contents.on('will-navigate', (event, navigationUrl) => {
@@ -50,22 +65,13 @@ app.on('web-contents-created', (event, contents) => {
   })
 })
 
-// https://github.com/electron/electron/issues/22691
-app.commandLine.appendSwitch('wm-window-animations-disabled')
-
-// https://github.com/electron/electron/issues/18397
-app.allowRendererProcessReuse = !isDev
-
-const { getAppSetting, parseEnv, getWindowSizeInfo } = require('./utils')
-
-global.envParams = parseEnv()
 
 require('../common/error')
 require('./events')
+require('./event')
 require('./rendererEvents')
 const winEvent = require('./rendererEvents/winEvent')
 const autoUpdate = require('./utils/autoUpdate')
-const { isMac, isLinux } = require('../common/utils')
 
 
 let winURL
@@ -84,7 +90,7 @@ function createWindow() {
   /**
    * Initial window options
    */
-  global.mainWindow = new BrowserWindow({
+  global.modules.mainWindow = new BrowserWindow({
     height: windowSizeInfo.height,
     useContentSize: true,
     width: windowSizeInfo.width,
@@ -103,32 +109,42 @@ function createWindow() {
     },
   })
 
-  global.mainWindow.loadURL(winURL)
+  global.modules.mainWindow.loadURL(winURL)
 
-  winEvent(global.mainWindow)
-  // mainWindow.webContents.openDevTools()
+  winEvent(global.modules.mainWindow)
+  // global.modules.mainWindow.webContents.openDevTools()
 
   if (!isDev) autoUpdate()
 }
 
+global.appHotKey = {
+  enable: true,
+  config: {},
+  state: null,
+}
+
 function init() {
-  global.appSetting = getAppSetting()
+  const info = initSetting()
+  global.appSetting = info.setting
+  global.appSettingVersion = info.version
+  global.appHotKey.config = initHotKey()
+  global.lx_event.common.initSetting()
+  global.lx_event.hotKey.init()
   createWindow()
-  global.lx_event.tray.create()
 }
 
 app.on('ready', init)
 
 app.on('activate', () => {
-  if (global.mainWindow) {
-    if (global.mainWindow.isMinimized()) {
-      global.mainWindow.restore()
-    } else if (global.mainWindow.isVisible()) {
-      global.mainWindow.focus()
+  if (global.modules.mainWindow) {
+    if (global.modules.mainWindow.isMinimized()) {
+      global.modules.mainWindow.restore()
+    } else if (global.modules.mainWindow.isVisible()) {
+      global.modules.mainWindow.focus()
     } else {
-      global.mainWindow.show()
+      global.modules.mainWindow.show()
     }
-  } else if (global.mainWindow === null) {
+  } else if (global.modules.mainWindow === null) {
     init()
   }
 })

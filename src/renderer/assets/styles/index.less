@@ -36,28 +36,29 @@ table {
   border-spacing: 0;
   border-collapse: collapse;
   overflow: hidden;
-  color: rgba(0, 0, 0, 0.95);
+  color: @color-theme_2-font;
   th {
     font-size: 12px;
     text-align: left;
-    height: 28px;
-    line-height: 28px;
-    padding: 5px;
+    line-height: 38px;
+    padding: 0 6px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
   tbody {
     tr {
-      border-top: 1px solid @color-theme_2-line;
       // border-top: 1px solid rgba(0, 0, 0, 0.12);
       transition: background-color 0.2s ease;
+      + tr {
+        border-top: 1px solid @color-theme_2-line;
+      }
       &:hover {
         background-color: @color-theme_2-hover;
       }
       &.active {
         background-color: @color-theme_2-active;
       }
-      &:first-child {
-        border-top: none;
+      &.selected {
+        background-color: @color-theme_2-hover;
       }
       td {
         padding: 6px;
@@ -71,9 +72,6 @@ table {
   }
 }
 
-a {
-  color: #000;
-}
 
 .badge {
   display: inline-block;
@@ -138,6 +136,10 @@ svg {
   transition-property: fill;
 }
 
+button, input, textarea, a {
+  color: @color-theme_2-font;
+}
+
 input, textarea {
   &::placeholder {
     color: @color-theme_2-font-label;
@@ -187,6 +189,10 @@ input, textarea {
 
 each(@themes, {
   #container.@{value} {
+    button, input, textarea, a {
+      color: ~'@{color-@{value}-theme_2-font}';
+    }
+
     .hover, a {
       &:hover {
         color: ~'@{color-@{value}-theme}';
@@ -210,6 +216,8 @@ each(@themes, {
       }
     }
     table {
+      color: ~'@{color-@{value}-theme_2-font}';
+
       tbody {
         tr {
           border-top-color: ~'@{color-@{value}-theme_2-line}';
@@ -218,6 +226,9 @@ each(@themes, {
           }
           &.active {
             background-color: ~'@{color-@{value}-theme_2-active}';
+          }
+          &.selected {
+            background-color: ~'@{color-@{value}-theme_2-hover}';
           }
         }
       }

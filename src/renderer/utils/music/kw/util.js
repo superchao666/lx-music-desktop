@@ -1,4 +1,5 @@
 import { httpGet } from '../../request'
+import { rendererInvoke, NAMES } from '../../../../common/ipc'
 
 if (!window.kw_token) {
   window.kw_token = {
@@ -32,3 +33,5 @@ export const getToken = () => new Promise((resolve, reject) => {
     resolve(token)
   })
 })
+
+export const decodeLyric = base64Data => rendererInvoke(NAMES.mainWindow.handle_kw_decode_lyric, base64Data)

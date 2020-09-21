@@ -1,36 +1,9 @@
-
 // const isDev = process.env.NODE_ENV === 'development'
-import Store from 'electron-store'
-import { updateSetting } from '../utils'
 import { windowSizeList } from '../../common/config'
 import { version } from '../../../package.json'
-const electronStore_list = window.electronStore_list = new Store({
-  name: 'playList',
-})
-const electronStore_config = window.electronStore_config = new Store({
-  name: 'config',
-})
-if (!electronStore_config.get('version') && electronStore_config.get('setting')) { // 迁移配置
-  electronStore_config.set('version', electronStore_config.get('setting.version'))
-  electronStore_config.delete('setting.version')
-  const list = electronStore_config.get('list')
-  if (list) {
-    if (list.defaultList) electronStore_list.set('defaultList', list.defaultList)
-    if (list.loveList) electronStore_list.set('loveList', list.loveList)
-    electronStore_config.delete('list')
-  }
-  const downloadList = electronStore_config.get('download')
-  if (downloadList) {
-    if (downloadList.list) electronStore_list.set('downloadList', downloadList.list)
-    electronStore_config.delete('download')
-  }
-}
-const { version: settingVersion, setting } = updateSetting(electronStore_config.get('setting'), electronStore_config.get('version'))
-electronStore_config.set('version', settingVersion)
-electronStore_config.set('setting', setting)
+
 process.versions.app = version
 
-window.i18n.locale = setting.langId
 
 export default {
   themes: [
@@ -80,6 +53,11 @@ export default {
       class: 'ming',
     },
     {
+      id: 12,
+      name: '青出于黑',
+      class: 'blue2',
+    },
+    {
       id: 7,
       name: '月里嫦娥',
       class: 'mid_autumn',
@@ -108,8 +86,8 @@ export default {
     downloadProgress: null,
   },
   userInfo: null,
-  setting,
-  settingVersion,
+  setting: null,
+  settingVersion: null,
 
   windowSizeList,
 }

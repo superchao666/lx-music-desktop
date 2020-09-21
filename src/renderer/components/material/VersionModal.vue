@@ -46,7 +46,7 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
           | 你可以去&nbsp;
           strong.hover.underline(@click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/releases')" title="点击打开") 软件发布页
           | &nbsp;或&nbsp;
-          strong.hover.underline(@click="handleOpenUrl('https://www.lanzous.com/b906260/')" title="点击打开") 网盘
+          strong.hover.underline(@click="handleOpenUrl('https://www.lanzoux.com/b0bf2cfa/')" title="点击打开") 网盘
           | (密码：
           strong.hover(@click="handleCopy('glqw')" title="点击复制") glqw
           | )&nbsp;下载新版本，
@@ -63,7 +63,7 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
         | 你可以去
         material-btn(min @click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/releases')" title="点击打开") 软件发布页
         | 或
-        material-btn(min @click="handleOpenUrl('https://www.lanzous.com/b906260/')" title="点击打开") 网盘
+        material-btn(min @click="handleOpenUrl('https://www.lanzoux.com/b0bf2cfa/')" title="点击打开") 网盘
         | (密码：
         strong.hover(@click="handleCopy('glqw')" title="点击复制") glqw
         | )下载新版本，
@@ -84,7 +84,7 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
             | 检查方法：打开
             material-btn(min @click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/releases')" title="点击打开") 软件发布页
             | 或
-            material-btn(min @click="handleOpenUrl('https://www.lanzous.com/b906260/')" title="点击打开") 网盘
+            material-btn(min @click="handleOpenUrl('https://www.lanzoux.com/b0bf2cfa/')" title="点击打开") 网盘
             | (密码：
             strong.hover(@click="handleCopy('glqw')" title="点击复制") glqw
             | )查看它们的
@@ -117,7 +117,7 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
           | 手动更新可以去&nbsp;
           strong.hover.underline(@click="handleOpenUrl('https://github.com/lyswhut/lx-music-desktop/releases')" title="点击打开") 软件发布页
           | &nbsp;或&nbsp;
-          strong.hover.underline(@click="handleOpenUrl('https://www.lanzous.com/b906260/')" title="点击打开") 网盘
+          strong.hover.underline(@click="handleOpenUrl('https://www.lanzoux.com/b0bf2cfa/')" title="点击打开") 网盘
           | (密码：
           strong.hover(@click="handleCopy('glqw')" title="点击复制") glqw
           | )&nbsp;下载，
@@ -127,8 +127,8 @@ material-modal(:show="version.showModal" @close="handleClose" v-if="version.newV
 
 <script>
 import { mapGetters, mapMutations } from 'vuex'
-import { rendererSend } from '../../../common/ipc'
-import { checkVersion, openUrl, clipboardWriteText, sizeFormate } from '../../utils'
+import { rendererSend, NAMES } from '../../../common/ipc'
+import { compareVer, openUrl, clipboardWriteText, sizeFormate } from '../../utils'
 
 export default {
   computed: {
@@ -138,7 +138,7 @@ export default {
       let arr = []
       let currentVer = this.version.version
       this.version.newVersion.history.forEach(ver => {
-        if (checkVersion(currentVer, ver.version)) arr.push(ver)
+        if (compareVer(currentVer, ver.version) < 0) arr.push(ver)
       })
 
       return arr
@@ -165,7 +165,7 @@ export default {
     handleRestartClick(event) {
       this.handleClose()
       event.target.disabled = true
-      rendererSend('quit-update')
+      rendererSend(NAMES.mainWindow.quit_update)
     },
     handleCopy(text) {
       clipboardWriteText(text)

@@ -1,13 +1,20 @@
 <template lang="pug">
-  div(:class="$style.container" @contextmenu="handleContextMenu")
+  div(:class="[$style.container, setting.controlBtnPosition == 'left' ? $style.controlBtnLeft : $style.controlBtnRight]" @contextmenu="handleContextMenu")
     //- div(:class="$style.bg" :style="bgStyle")
     //- div(:class="$style.bg2")
     div(:class="$style.header")
-      div(:class="$style.control")
+      div(:class="$style.controBtn")
         button(type="button" :class="$style.hide" :title="$t('core.player.hide_detail')" @click="visiblePlayerDetail(false)")
+          svg(:class="$style.controBtnIcon" version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' width='80%' viewBox='0 0 30.727 30.727' space='preserve')
+            use(xlink:href='#icon-window-hide')
         button(type="button" :class="$style.min" :title="$t('core.toolbar.min')" @click="min")
+          svg(:class="$style.controBtnIcon" version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' width='100%' viewBox='0 0 24 24' space='preserve')
+            use(xlink:href='#icon-window-minimize')
+
         //- button(type="button" :class="$style.max" @click="max")
         button(type="button" :class="$style.close" :title="$t('core.toolbar.close')" @click="close")
+          svg(:class="$style.controBtnIcon" version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' width='100%' viewBox='0 0 24 24' space='preserve')
+            use(xlink:href='#icon-window-close')
 
     div(:class="$style.main")
       div(:class="$style.left")
@@ -22,9 +29,9 @@
           ul
 
       div(:class="$style.right")
-        div(:class="[$style.lyric, lyricEvent.isMsDown ? $style.draging : null]" @mousedown="handleLyricMouseDown" ref="dom_lyric")
+        div(:class="[$style.lyric, lyricEvent.isMsDown ? $style.draging : null]" @wheel="handleWheel" @mousedown="handleLyricMouseDown" ref="dom_lyric")
           div(:class="$style.lyricSpace")
-          p(v-for="(info, index) in lyric.lines" :key="index" :class="lyric.line == index ? $style.lrcActive : null") {{info.text}}
+          p(v-for="(info, index) in lyricLines" :key="index" :class="lyric.line == index ? $style.lrcActive : null") {{info.text}}
           div(:class="$style.lyricSpace")
     div(:class="$style.footer")
       div(:class="$style.left")
@@ -32,7 +39,7 @@
           div(:class="$style.progressContent")
             div(:class="$style.progress")
               //- div(:class="[$style.progressBar, $style.progressBar1]" :style="{ transform: `scaleX(${progress || 0})` }")
-              div(:class="[$style.progressBar, $style.progressBar2, isActiveTransition ? $style.barTransition : '']" @transitionend="handleTransitionEnd" :style="{ transform: `scaleX(${playInfo.progress || 0})` }")
+              div(:class="[$style.progressBar, $style.progressBar2, isActiveTransition ? $style.barTransition : '']" @transitionend="handleTransitionEnd" :style="{ transform: `scaleX(${playInfo.progress || 0})`, willChange: isPlay || isActiveTransition ? 'transform' : 'auto' }")
             div(:class="$style.progressMask" @click='setProgress' ref="dom_progress")
         div(:class="$style.timeLabel")
           span(style="margin-left: 15px") {{playInfo.status}}
@@ -59,7 +66,7 @@
 
 <script>
 import { mapGetters, mapMutations } from 'vuex'
-import { rendererSend } from 'common/ipc'
+import { base as eventBaseName } from '../../event/names'
 import { scrollTo } from '../../utils'
 
 let cancelScrollFn = null
@@ -119,25 +126,53 @@ export default {
     },
   },
   watch: {
-    'musicInfo.img': {
-      handler(n) {
-        if (n) {
-          this.bgStyle.backgroundImage = `url(${n})`
-        }
-      },
-      immediate: true,
-    },
+    // 'musicInfo.img': {
+    //   handler(n) {
+    //     if (n) {
+    //       this.bgStyle.backgroundImage = `url(${n})`
+    //     }
+    //   },
+    //   immediate: true,
+    // },
     'lyric.lines': {
-      handler() {
-        this.$nextTick(() => {
-          this.dom_lines = this.$refs.dom_lyric.querySelectorAll('p')
-          this.handleScrollLrc()
-        })
+      handler(n, o) {
+        this.isSetedLines = true
+        if (o) {
+          this._lyricLines = n
+          if (n.length) {
+            this.lyricLines = n
+            this.$nextTick(() => {
+              this.dom_lines = this.$refs.dom_lyric.querySelectorAll('p')
+              this.handleScrollLrc()
+            })
+          } else {
+            if (cancelScrollFn) {
+              cancelScrollFn()
+              cancelScrollFn = null
+            }
+            cancelScrollFn = scrollTo(this.$refs.dom_lyric, 0, 300, () => {
+              if (this.lyricLines === this._lyricLines && this._lyricLines.length) return
+              this.lyricLines = this._lyricLines
+              this.$nextTick(() => {
+                this.dom_lines = this.$refs.dom_lyric.querySelectorAll('p')
+                this.handleScrollLrc()
+              })
+            }, 50)
+          }
+        } else {
+          this.lyricLines = n
+          this.$nextTick(() => {
+            this.dom_lines = this.$refs.dom_lyric.querySelectorAll('p')
+            this.handleScrollLrc()
+          })
+        }
       },
       immediate: true,
     },
     'lyric.line': {
       handler(n) {
+        if (n < 0) return
+        if (n == 0 && this.isSetedLines) return this.isSetedLines = false
         this.handleScrollLrc()
       },
       immediate: true,
@@ -167,6 +202,9 @@ export default {
         isStopScroll: false,
         timeout: null,
       },
+      _lyricLines: [],
+      lyricLines: [],
+      isSetedLines: false,
     }
   },
   mounted() {
@@ -184,6 +222,7 @@ export default {
     window.removeEventListener('resize', this.handleResize)
   },
   computed: {
+    ...mapGetters(['setting']),
     ...mapGetters('player', ['isShowPlayerDetail']),
   },
   methods: {
@@ -262,19 +301,29 @@ export default {
         this.handleScrollLrc()
       }, 3000)
     },
+    handleWheel(event) {
+      console.log(event.deltaY)
+      if (!this.lyricEvent.isStopScroll) this.lyricEvent.isStopScroll = true
+      if (cancelScrollFn) {
+        cancelScrollFn()
+        cancelScrollFn = null
+      }
+      this.$refs.dom_lyric.scrollTop = this.$refs.dom_lyric.scrollTop + event.deltaY
+      this.startLyricScrollTimeout()
+    },
     clearLyricScrollTimeout() {
       if (!this.lyricEvent.timeout) return
       clearTimeout(this.lyricEvent.timeout)
       this.lyricEvent.timeout = null
     },
     min() {
-      rendererSend('min')
+      window.eventHub.$emit(eventBaseName.min)
     },
     max() {
-      rendererSend('max')
+      window.eventHub.$emit(eventBaseName.max)
     },
     close() {
-      rendererSend('close')
+      window.eventHub.$emit(eventBaseName.close)
     },
   },
 }
@@ -284,7 +333,7 @@ export default {
 <style lang="less" module>
 @import '../../assets/styles/layout.less';
 
-@control-btn-width: @height-toolbar * .5;
+@control-btn-width: @height-toolbar * .26;
 
 .container {
   position: absolute;
@@ -294,13 +343,33 @@ export default {
   height: 100%;
   top: 0;
   left: 0;
-  background-color: #fff;
+  background-color: @color-theme_2-background_1;
   z-index: 10;
   // -webkit-app-region: drag;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: @radius-border;
   color: @color-theme_2-font;
   border-left: 12px solid @color-theme;
+  -webkit-app-region: no-drag;
+
+  &.controlBtnLeft {
+    .controBtn {
+      left: 0;
+      flex-direction: row-reverse;
+      height: @height-toolbar * .7;
+      button + button {
+        margin-right: @control-btn-width / 2;
+      }
+    }
+  }
+  &.controlBtnRight {
+    .controBtn {
+      right: @control-btn-width * .5;
+      button + button {
+        margin-left: @control-btn-width * 1.2;
+      }
+    }
+  }
 }
 .bg {
   position: absolute;
@@ -327,17 +396,17 @@ export default {
   flex: 0 0 @height-toolbar;
   -webkit-app-region: drag;
 }
-.control {
+
+.controBtn {
   position: absolute;
-  right: 0;
   top: 0;
   display: flex;
   align-items: center;
   height: @height-toolbar;
   -webkit-app-region: no-drag;
-  padding: 0 @control-btn-width * 0.6;
+  padding: 0 @control-btn-width;
   &:hover {
-    button:before {
+    .controBtnIcon {
       opacity: 1;
     }
   }
@@ -348,94 +417,33 @@ export default {
     height: @control-btn-width;
     background: none;
     border: none;
+    outline: none;
+    padding: 1px;
+    cursor: pointer;
+    border-radius: 50%;
+    color: @color-theme_2;
     display: flex;
     justify-content: center;
     align-items: center;
-    outline: none;
-    padding: 0;
-    cursor: pointer;
-    + button {
-      margin-left: @control-btn-width * .4;
-    }
 
-    &:after {
-      content: ' ';
-      display: block;
-      border-radius: 50%;
-      width: 14px;
-      height: 14px;
-      transition: background-color 0.2s ease-in-out;
-    }
-
-    &:before {
-      display: block;
-      position: absolute;
-      opacity: 0;
-      transition: opacity @transition-theme;
-    }
-
-    &.hide:after {
+    &.hide {
       background-color: @color-hideBtn;
     }
-    &.min:after {
+    &.min {
       background-color: @color-minBtn;
     }
-    &.max:after {
+    &.max {
       background-color: @color-maxBtn;
     }
-    &.close:after {
+    &.close {
       background-color: @color-closeBtn;
     }
-
-    &.hide:hover:after {
-      background-color: @color-hideBtn-hover;
-    }
-    &.min:hover:after {
-      background-color: @color-minBtn-hover;
-      opacity: 1;
-    }
-    &.max:hover:after {
-      background-color: @color-maxBtn-hover;
-    }
-    &.close:hover:after {
-      background-color: @color-closeBtn-hover;
-    }
   }
 }
 
-.hide {
-  &:before {
-    content: '∨';
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 14px;
-    line-height: 1;
-    color: #fff;
-  }
-}
-
-.min {
-  &:before {
-    content: ' ';
-    width: 8px;
-    height: 2px;
-    left: @control-btn-width / 2 - 4;
-    top: @control-btn-width / 2 - 1;
-    background-color: #fff;
-  }
-}
-
-.close {
-  &:before {
-    content: '×';
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 14px;
-    line-height: 1;
-    color: #fff;
-  }
+.controBtnIcon {
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
 }
 
 .main {
@@ -465,6 +473,7 @@ export default {
     max-width: 100%;
     max-height: 100%;
     border: 5px solid @color-theme-hover;
+    // border-radius: @radius-border;
     // border: 5px solid #fff;
   }
 }
@@ -490,7 +499,7 @@ export default {
     content: ' ';
     height: 100px;
     width: 100%;
-    background-image: linear-gradient(0deg,rgba(255,255,255,0) 0%,#fff 95%);
+    background-image: linear-gradient(0deg,rgba(255,255,255,0) 0%,@color-theme_2-background_1 95%);
     pointer-events: none;
   }
   &:after {
@@ -500,7 +509,7 @@ export default {
     content: ' ';
     height: 100px;
     width: 100%;
-    background-image: linear-gradient(-180deg,rgba(255,255,255,0) 0%,#fff 95%);
+    background-image: linear-gradient(-180deg,rgba(255,255,255,0) 0%,@color-theme_2-background_1 95%);
     pointer-events: none;
   }
 }
@@ -517,7 +526,7 @@ export default {
     padding: 8px 0;
     line-height: 1.2;
     overflow-wrap: break-word;
-    transition: @transition-theme;
+    transition: @transition-theme !important;
     transition-property: color, font-size;
   }
 }
@@ -620,10 +629,10 @@ export default {
   padding: 5px;
   cursor: pointer;
   flex: none;
-  transition: @transition-theme;
-  transition-property: color;
+  // transition: @transition-theme;
+  // transition-property: color;
   color: @color-player-detail-play-btn;
-  transition: opacity 0.1s ease;
+  transition: opacity 0.2s ease;
   opacity: 1;
   cursor: pointer;
 
@@ -646,36 +655,33 @@ each(@themes, {
   :global(#container.@{value}) {
     .container {
       border-left-color: ~'@{color-@{value}-theme}';
+      background-color: ~'@{color-@{value}-theme_2-background_1}';
     }
-    .control {
+    .right {
+      &:before {
+        background-image: linear-gradient(0deg,rgba(255,255,255,0) 0%,~'@{color-@{value}-theme_2-background_1}' 95%);
+      }
+      &:after {
+        background-image: linear-gradient(-180deg,rgba(255,255,255,0) 0%,~'@{color-@{value}-theme_2-background_1}' 95%);
+      }
+    }
+    .controBtn {
       button {
+        color: ~'@{color-@{value}-theme_2}';
         // &.hide:after {
         //   background-color: ~'@{color-@{value}-hideBtn}';
         // }
-        &.hide:after {
+        &.hide {
           background-color: ~'@{color-@{value}-hideBtn}';
         }
-        &.min:after {
+        &.min {
           background-color: ~'@{color-@{value}-minBtn}';
         }
-        &.max:after {
+        &.max {
           background-color: ~'@{color-@{value}-maxBtn}';
         }
-        &.close:after {
+        &.close {
           background-color: ~'@{color-@{value}-closeBtn}';
-        }
-
-        &.hide:hover:after {
-          background-color: ~'@{color-@{value}-hideBtn-hover}';
-        }
-        &.min:hover:after {
-          background-color: ~'@{color-@{value}-minBtn-hover}';
-        }
-        &.max:hover:after {
-          background-color: ~'@{color-@{value}-maxBtn-hover}';
-        }
-        &.close:hover:after {
-          background-color: ~'@{color-@{value}-closeBtn-hover}';
         }
       }
     }

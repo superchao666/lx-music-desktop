@@ -8,34 +8,35 @@ div(:class="$style.download")
       table
         thead
           tr
-            th.nobreak.center(style="width: 10px;") #
-            th.nobreak(style="width: 28%;") {{$t('view.download.name')}}
-            th.nobreak(style="width: 22%;") {{$t('view.download.progress')}}
-            th.nobreak(style="width: 15%;") {{$t('view.download.status')}}
+            th.nobreak.center(style="width: 5%;") #
+            th.nobreak {{$t('view.download.name')}}
+            th.nobreak(style="width: 20%;") {{$t('view.download.progress')}}
+            th.nobreak(style="width: 22%;") {{$t('view.download.status')}}
             th.nobreak(style="width: 10%;") {{$t('view.download.quality')}}
-            th.nobreak(style="width: 20%;") {{$t('view.download.action')}}
-    div.scroll(v-if="list.length" :class="$style.tbody")
+            th.nobreak(style="width: 13%;") {{$t('view.download.action')}}
+    div.scroll(v-if="list.length" :class="$style.tbody" ref="dom_scrollContent")
       table
         tbody(ref="dom_tbody")
-          tr(v-for='(item, index) in showList' :key='item.key' @click="handleDoubleClick($event, index)" :class="playListIndex === index ? $style.active : ''")
-            td.nobreak.center(style="width: 37px;" @click.stop) {{index + 1}}
-            td.break(style="width: 28%;")
+          tr(v-for='(item, index) in showList' :key='item.key' @contextmenu="handleListItemRigthClick($event, index)" @click="handleDoubleClick($event, index)" :class="playListIndex === index ? $style.active : ''")
+            td.nobreak.center(style="width: 5%; padding-left: 3px; padding-right: 3px;" @click.stop) {{index + 1}}
+            td.break
               span.select {{item.musicInfo.name}} - {{item.musicInfo.singer}}
-            td.break(style="width: 22%;") {{item.progress.progress}}%
-            td.break(style="width: 15%;") {{item.statusText}}
+            td.break(style="width: 20%;") {{item.progress.progress}}%
+            td.break(style="width: 22%;") {{item.statusText}}
             td.break(style="width: 10%;") {{item.type && item.type.toUpperCase()}}
-            td(style="width: 20%; padding-left: 0; padding-right: 0;")
-              material-list-buttons(:index="index" :download-btn="false" :file-btn="item.status != downloadStatus.ERROR"
+            td(style="width: 13%; padding-left: 0; padding-right: 0;")
+              material-list-buttons(:index="index" :download-btn="false" :file-btn="item.status != downloadStatus.ERROR" remove-btn
                 :start-btn="!item.isComplate && item.status != downloadStatus.WAITING && (item.status != downloadStatus.RUN)"
                 :pause-btn="!item.isComplate && (item.status == downloadStatus.RUN || item.status == downloadStatus.WAITING)" :list-add-btn="false"
                 :play-btn="item.status == downloadStatus.COMPLETED" :search-btn="item.status == downloadStatus.ERROR" @btn-click="handleListBtnClick")
-    material-flow-btn(:show="isShowEditBtn" :play-btn="false" :download-btn="false" :add-btn="false" :start-btn="true" :pause-btn="true" @btn-click="handleFlowBtnClick")
+    material-menu(:menus="listItemMenu" :location="listMenu.menuLocation" item-name="name" :isShow="listMenu.isShowItemMenu" @menu-click="handleListItemMenuClick")
   div(:class="$style.noItem" v-else)
 </template>
 
 <script>
 import { mapGetters, mapActions, mapMutations } from 'vuex'
-import { checkPath, openDirInExplorer } from '../utils'
+import { checkPath, openDirInExplorer, openUrl } from '../utils'
+import musicSdk from '../utils/music'
 import path from 'path'
 
 export default {
@@ -45,36 +46,28 @@ export default {
       clickTime: window.performance.now(),
       clickIndex: -1,
       selectdData: [],
-      isShowEditBtn: false,
       isShowDownloadMultiple: false,
-      tabs: [
-        {
-          name: this.$t('view.download.all'),
-          id: 'all',
-        },
-        {
-          name: this.$t('view.download.runing'),
-          id: 'runing',
-        },
-        {
-          name: this.$t('view.download.paused'),
-          id: 'paused',
-        },
-        {
-          name: this.$t('view.download.error'),
-          id: 'error',
-        },
-        {
-          name: this.$t('view.download.finished'),
-          id: 'finished',
-        },
-      ],
       tabId: 'all',
       keyEvent: {
         isShiftDown: false,
         isModDown: false,
-        isADown: false,
-        aDownTimeout: null,
+      },
+      lastSelectIndex: 0,
+      listMenu: {
+        isShowItemMenu: false,
+        itemMenuControl: {
+          play: true,
+          start: true,
+          pause: true,
+          file: true,
+          search: true,
+          remove: true,
+          sourceDetail: true,
+        },
+        menuLocation: {
+          x: 0,
+          y: 0,
+        },
       },
     }
   },
@@ -106,16 +99,71 @@ export default {
           return this.list
       }
     },
+    tabs() {
+      return [
+        {
+          name: this.$t('view.download.all'),
+          id: 'all',
+        },
+        {
+          name: this.$t('view.download.runing'),
+          id: 'runing',
+        },
+        {
+          name: this.$t('view.download.paused'),
+          id: 'paused',
+        },
+        {
+          name: this.$t('view.download.error'),
+          id: 'error',
+        },
+        {
+          name: this.$t('view.download.finished'),
+          id: 'finished',
+        },
+      ]
+    },
+    listItemMenu() {
+      return [
+        {
+          name: this.$t('view.download.menu_play'),
+          action: 'play',
+          hide: !this.listMenu.itemMenuControl.play,
+        },
+        {
+          name: this.$t('view.download.menu_start'),
+          action: 'start',
+          hide: !this.listMenu.itemMenuControl.start,
+        },
+        {
+          name: this.$t('view.download.menu_pause'),
+          action: 'pause',
+          hide: !this.listMenu.itemMenuControl.pause,
+        },
+        {
+          name: this.$t('view.download.menu_file'),
+          action: 'file',
+          hide: !this.listMenu.itemMenuControl.file,
+        },
+        {
+          name: this.$t('view.download.menu_source_detail'),
+          action: 'sourceDetail',
+          disabled: !this.listMenu.itemMenuControl.sourceDetail,
+        },
+        {
+          name: this.$t('view.download.menu_search'),
+          action: 'search',
+          hide: !this.listMenu.itemMenuControl.search,
+        },
+        {
+          name: this.$t('view.download.menu_remove'),
+          action: 'remove',
+          hide: !this.listMenu.itemMenuControl.remove,
+        },
+      ]
+    },
   },
   watch: {
-    selectdData(n) {
-      const len = n.length
-      if (len) {
-        this.isShowEditBtn = true
-      } else {
-        this.isShowEditBtn = false
-      }
-    },
     list() {
       this.removeAllSelect()
     },
@@ -135,7 +183,6 @@ export default {
       window.eventHub.$on('key_mod_down', this.handle_key_mod_down)
       window.eventHub.$on('key_mod_up', this.handle_key_mod_up)
       window.eventHub.$on('key_mod+a_down', this.handle_key_mod_a_down)
-      window.eventHub.$on('key_mod+a_up', this.handle_key_mod_a_up)
     },
     unlistenEvent() {
       window.eventHub.$off('key_shift_down', this.handle_key_shift_down)
@@ -143,7 +190,6 @@ export default {
       window.eventHub.$off('key_mod_down', this.handle_key_mod_down)
       window.eventHub.$off('key_mod_up', this.handle_key_mod_up)
       window.eventHub.$off('key_mod+a_down', this.handle_key_mod_a_down)
-      window.eventHub.$off('key_mod+a_up', this.handle_key_mod_a_up)
     },
     handle_key_shift_down() {
       if (!this.keyEvent.isShiftDown) this.keyEvent.isShiftDown = true
@@ -157,26 +203,12 @@ export default {
     handle_key_mod_up() {
       if (this.keyEvent.isModDown) this.keyEvent.isModDown = false
     },
-    handle_key_mod_a_down() {
-      if (!this.keyEvent.isADown) {
-        this.keyEvent.isModDown = false
-        this.keyEvent.isADown = true
-        this.handleSelectAllData()
-        if (this.keyEvent.aDownTimeout) clearTimeout(this.keyEvent.aDownTimeout)
-        this.keyEvent.aDownTimeout = setTimeout(() => {
-          this.keyEvent.aDownTimeout = null
-          this.keyEvent.isADown = false
-        }, 500)
-      }
-    },
-    handle_key_mod_a_up() {
-      if (this.keyEvent.isADown) {
-        if (this.keyEvent.aDownTimeout) {
-          clearTimeout(this.keyEvent.aDownTimeout)
-          this.keyEvent.aDownTimeout = null
-        }
-        this.keyEvent.isADown = false
-      }
+    handle_key_mod_a_down({ event }) {
+      if (event.target.tagName == 'INPUT') return
+      event.preventDefault()
+      if (event.repeat) return
+      this.keyEvent.isModDown = false
+      this.handleSelectAllData()
     },
     handleDoubleClick(event, index) {
       if (event.target.classList.contains('select')) return
@@ -198,7 +230,7 @@ export default {
     handleSelectData(event, clickIndex) {
       if (this.keyEvent.isShiftDown) {
         if (this.selectdData.length) {
-          let lastSelectIndex = this.showList.indexOf(this.selectdData[this.selectdData.length - 1])
+          let lastSelectIndex = this.lastSelectIndex
           this.removeAllSelect()
           if (lastSelectIndex != clickIndex) {
             let isNeedReverse = false
@@ -219,8 +251,10 @@ export default {
         } else {
           event.currentTarget.classList.add('active')
           this.selectdData.push(this.showList[clickIndex])
+          this.lastSelectIndex = clickIndex
         }
       } else if (this.keyEvent.isModDown) {
+        this.lastSelectIndex = clickIndex
         let item = this.showList[clickIndex]
         let index = this.selectdData.indexOf(item)
         if (index < 0) {
@@ -246,25 +280,22 @@ export default {
       index = this.list.findIndex(i => i.key === key)
       let info = this.list[index]
       if (info.isComplate) {
-        this.handlePlay(index)
+        this.handlePlay(info)
       } else if (info.status === this.downloadStatus.RUN) {
         this.handlePauseTask(index)
       } else {
         this.handleStartTask(index)
       }
     },
-    async handlePlay(index) {
-      const targetSong = this.list[index]
+    async handlePlay(targetSong) {
       if (!await checkPath(path.join(this.setting.download.savePath, targetSong.fileName))) return
-      this.setList({ list: this.list, listId: 'download', index: this.list.findIndex(i => i.key === targetSong.key) })
+      this.setList({ list: { list: this.list, id: 'download' }, index: this.list.findIndex(i => i.key === targetSong.key) })
     },
     handleListBtnClick(info) {
       let item = this.showList[info.index]
-      const key = item.key
-      let index = this.list.findIndex(i => i.key === key)
       switch (info.action) {
         case 'play':
-          this.handlePlay(index)
+          this.handlePlay(item)
           break
         case 'start':
           this.startTask(item)
@@ -276,10 +307,10 @@ export default {
           this.removeTask(item)
           break
         case 'file':
-          this.handleOpenFolder(index)
+          this.handleOpenFolder(item.filePath)
           break
         case 'search':
-          this.handleSearch(index)
+          this.handleSearch(item.musicInfo)
           break
       }
     },
@@ -292,39 +323,144 @@ export default {
         node.classList.add('active')
       }
     },
-    async handleFlowBtnClick(action) {
-      let selectdData = [...this.selectdData]
-      this.removeAllSelect()
-      await this.$nextTick()
+    // async handleFlowBtnClick(action) {
+    //   let selectdData = [...this.selectdData]
+    //   this.removeAllSelect()
+    //   await this.$nextTick()
 
-      switch (action) {
-        case 'start':
-          this.startTasks(selectdData)
-          break
-        case 'pause':
-          this.pauseTasks(selectdData)
-          break
-        case 'remove':
-          this.removeTasks(selectdData)
-          break
-      }
+    //   switch (action) {
+    //     case 'start':
+    //       this.startTasks(selectdData)
+    //       break
+    //     case 'pause':
+    //       this.pauseTasks(selectdData)
+    //       break
+    //     case 'remove':
+    //       this.removeTasks(selectdData)
+    //       break
+    //   }
+    // },
+    async handleOpenFolder(filePath) {
+      if (!await checkPath(filePath)) return
+      openDirInExplorer(filePath)
     },
-    async handleOpenFolder(index) {
-      let path = this.list[index].filePath
-      if (!await checkPath(path)) return
-      openDirInExplorer(path)
-    },
-    handleSearch(index) {
-      const info = this.list[index].musicInfo
+    handleSearch(musicInfo) {
       this.$router.push({
         path: 'search',
         query: {
-          text: `${info.name} ${info.singer}`,
+          text: `${musicInfo.name} ${musicInfo.singer}`,
         },
       })
     },
     handleTabChange() {
       this.selectdData = []
+    },
+    handleListItemRigthClick(event, index) {
+      this.listMenu.itemMenuControl.sourceDetail = !!musicSdk[this.showList[index].musicInfo.source].getMusicDetailPageUrl
+      let dom_selected = this.$refs.dom_tbody.querySelector('tr.selected')
+      if (dom_selected) dom_selected.classList.remove('selected')
+      this.$refs.dom_tbody.querySelectorAll('tr')[index].classList.add('selected')
+      let dom_td = event.target.closest('td')
+      this.listMenu.rightClickItemIndex = index
+      this.listMenu.menuLocation.x = dom_td.offsetLeft + event.offsetX
+      this.listMenu.menuLocation.y = dom_td.offsetTop + event.offsetY - this.$refs.dom_scrollContent.scrollTop
+
+      let item = this.showList[index]
+      if (item.isComplate) {
+        this.listMenu.itemMenuControl.play =
+        this.listMenu.itemMenuControl.file = true
+        this.listMenu.itemMenuControl.start =
+        this.listMenu.itemMenuControl.pause = false
+      } else if (item.status === this.downloadStatus.ERROR || item.status === this.downloadStatus.PAUSE) {
+        this.listMenu.itemMenuControl.play =
+        this.listMenu.itemMenuControl.pause =
+        this.listMenu.itemMenuControl.file = false
+        this.listMenu.itemMenuControl.start = true
+      } else {
+        this.listMenu.itemMenuControl.play =
+        this.listMenu.itemMenuControl.start =
+        this.listMenu.itemMenuControl.file = false
+        this.listMenu.itemMenuControl.pause = true
+      }
+
+      this.$nextTick(() => {
+        this.listMenu.isShowItemMenu = true
+      })
+    },
+    hideListMenu() {
+      let dom_selected = this.$refs.dom_tbody && this.$refs.dom_tbody.querySelector('tr.selected')
+      if (dom_selected) dom_selected.classList.remove('selected')
+      this.listMenu.isShowItemMenu = false
+      this.listMenu.rightClickItemIndex = -1
+    },
+    handleListItemMenuClick(action) {
+      // console.log(action)
+      let index = this.listMenu.rightClickItemIndex
+      this.hideListMenu()
+      // let key
+      let item
+      let url
+
+      switch (action && action.action) {
+        case 'play':
+          item = this.showList[index]
+          if (item) this.handlePlay(item)
+          break
+        case 'start':
+          if (this.selectdData.length) {
+            let selectdData = [...this.selectdData]
+            this.removeAllSelect()
+            this.startTasks(selectdData)
+          } else {
+            item = this.showList[index]
+            if (item) this.startTask(item)
+            this.$nextTick(() => {
+              this.isShowDownload = true
+            })
+          }
+          break
+        case 'pause':
+          if (this.selectdData.length) {
+            let selectdData = [...this.selectdData]
+            this.removeAllSelect()
+            this.pauseTasks(selectdData)
+          } else {
+            item = this.showList[index]
+            if (item) this.pauseTask(item)
+            this.$nextTick(() => {
+              this.isShowDownload = true
+            })
+          }
+          break
+        case 'file':
+          item = this.showList[index]
+          // key = item.key
+          // index = this.list.findIndex(i => i.key === key)
+          if (item) this.handleOpenFolder(item.filePath)
+          break
+        case 'search':
+          item = this.showList[index]
+          if (item) this.handleSearch(item.musicInfo)
+          break
+        case 'remove':
+          if (this.selectdData.length) {
+            let selectdData = [...this.selectdData]
+            this.removeAllSelect()
+            this.removeTasks(selectdData)
+          } else {
+            item = this.showList[index]
+            if (item) this.removeTask(item)
+            this.$nextTick(() => {
+              this.isShowDownload = true
+            })
+          }
+          break
+        case 'sourceDetail':
+          item = this.showList[index].musicInfo
+          url = musicSdk[item.source].getMusicDetailPageUrl(item)
+          if (!url) return
+          openUrl(url)
+      }
     },
   },
 }
@@ -384,7 +520,7 @@ export default {
   }
   tr {
     &.active {
-      color: @color-theme;
+      color: @color-btn;
     }
   }
 }
@@ -394,7 +530,7 @@ each(@themes, {
     .tbody {
       tr {
         &.active {
-          color: ~'@{color-@{value}-theme}';
+          color: ~'@{color-@{value}-btn}';
         }
       }
       td {
