@@ -1,7 +1,7 @@
 <template lang="pug">
-  input(:class="$style.input" :type="type" :placeholder="placeholder" v-model.trim="text" :disabled="disabled"
-    @focus="$emit('focus', $event)" @blur="$emit('blur', $event)" @input="$emit('input', text)" @change="$emit('change', text)"
-    @keyup.enter="$emit('submit', text)")
+  input(:class="$style.input" ref="dom_input" :type="type" :placeholder="placeholder" :value="value" :disabled="disabled"
+    @focus="$emit('focus', $event)" @blur="$emit('blur', $event)" @input="handleInput" @change="$emit('change', $event.target.value.trim())"
+    @keyup.enter="$emit('submit', $event.target.value.trim())")
 </template>
 
 <script>
@@ -24,19 +24,14 @@ export default {
       default: 'text',
     },
   },
-  data() {
-    return {
-      text: '',
-    }
-  },
-  watch: {
-    value(n) {
-      this.text = n
-    },
-  },
   methods: {
-    handleInput() {
-
+    handleInput(event) {
+      let value = event.target.value.trim()
+      event.target.value = value
+      this.$emit('input', value)
+    },
+    focus() {
+      this.$refs.dom_input.focus()
     },
   },
 }
@@ -56,6 +51,13 @@ export default {
   transition: background-color 0.2s ease;
   background-color: @color-btn-background;
   font-size: 13.3px;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   &[disabled] {
     opacity: .4;
   }

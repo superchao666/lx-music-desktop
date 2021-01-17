@@ -3,15 +3,18 @@
     div(:class="$style.lists" ref="dom_lists")
       div(:class="$style.listHeader")
         h2(:class="$style.listsTitle") {{$t('core.aside.my_list')}}
-        button(:class="$style.listsAdd" @click="handleShowNewList" :title="$t('view.list.lists_new_list_btn')")
+        button(:class="$style.listsAdd" @click="handleShowNewList" :tips="$t('view.list.lists_new_list_btn')")
           svg(version='1.1' xmlns='http://www.w3.org/2000/svg' xlink='http://www.w3.org/1999/xlink' height='70%' viewBox='0 0 24 24' space='preserve')
             use(xlink:href='#icon-list-add')
       ul.scroll(:class="$style.listsContent" ref="dom_lists_list")
-        li(:class="[$style.listsItem, defaultList.id == listId ? $style.active : null]" :title="defaultList.name" @click="handleListToggle(defaultList.id)")
+        li(:class="[$style.listsItem, defaultList.id == listId ? $style.active : null]" :tips="defaultList.name" @click="handleListToggle(defaultList.id)")
           span(:class="$style.listsLabel") {{defaultList.name}}
-        li(:class="[$style.listsItem, loveList.id == listId ? $style.active : null]" :title="loveList.name" @click="handleListToggle(loveList.id)")
+        li(:class="[$style.listsItem, loveList.id == listId ? $style.active : null]" :tips="loveList.name" @click="handleListToggle(loveList.id)")
           span(:class="$style.listsLabel") {{loveList.name}}
-        li.user-list(:class="[$style.listsItem, item.id == listId ? $style.active : null, listsData.rightClickItemIndex == index ? $style.clicked : null]" @contextmenu="handleListsItemRigthClick($event, index)" :title="item.name" v-for="(item, index) in userList" :key="item.id")
+        li.user-list(
+          :class="[$style.listsItem, item.id == listId ? $style.active : null, listsData.rightClickItemIndex == index ? $style.clicked : null, fetchingListStatus[item.id] ? $style.fetching : null]"
+          @contextmenu="handleListsItemRigthClick($event, index)"
+          :tips="item.name" v-for="(item, index) in userList" :key="item.id")
           span(:class="$style.listsLabel" @click="handleListToggle(item.id, index + 2)") {{item.name}}
           input.key-bind(:class="$style.listsInput" @contextmenu.stop type="text" @keyup.enter="handleListsSave(index, $event)" @blur="handleListsSave(index, $event)" :value="item.name" :placeholder="item.name")
         transition(enter-active-class="animated-fast slideInLeft" leave-active-class="animated-fast fadeOut" @after-leave="handleListsNewAfterLeave")
@@ -66,6 +69,7 @@
     material-menu(:menus="listsItemMenu" :location="listsData.menuLocation" item-name="name" :isShow="listsData.isShowItemMenu" @menu-click="handleListsItemMenuClick")
     material-menu(:menus="listItemMenu" :location="listMenu.menuLocation" item-name="name" :isShow="listMenu.isShowItemMenu" @menu-click="handleListItemMenuClick")
     material-search-list(:list="list" @action="handleMusicSearchAction" :visible="isVisibleMusicSearch")
+    material-list-sort-modal(:show="isShowListSortModal" :music-info="musicInfo" :selected-num="selectdListDetailData.length" @close="isShowListSortModal = false" @confirm="handleSortMusicInfo")
 </template>
 
 <script>
@@ -86,9 +90,9 @@ export default {
       // isShowEditBtn: false,
       isShowDownloadMultiple: false,
       delayShow: false,
-      routeLeaveLocation: null,
       isShowListAdd: false,
       isShowListAddMultiple: false,
+      isShowListSortModal: false,
       delayTimeout: null,
       isToggleList: true,
       focusTarget: 'listDetail',
@@ -101,6 +105,7 @@ export default {
         isShowItemMenu: false,
         itemMenuControl: {
           rename: true,
+          sync: false,
           moveup: true,
           movedown: true,
           remove: true,
@@ -120,7 +125,9 @@ export default {
           copyName: true,
           addTo: true,
           moveTo: true,
+          sort: true,
           download: true,
+          search: true,
           remove: true,
           sourceDetail: true,
         },
@@ -132,6 +139,7 @@ export default {
       isMove: false,
       isMoveMultiple: false,
       isVisibleMusicSearch: false,
+      fetchingListStatus: {},
     }
   },
   computed: {
@@ -182,6 +190,11 @@ export default {
           disabled: !this.listsData.itemMenuControl.rename,
         },
         {
+          name: this.$t('view.list.lists_sync'),
+          action: 'sync',
+          disabled: !this.listsData.itemMenuControl.sync,
+        },
+        {
           name: this.$t('view.list.lists_moveup'),
           action: 'moveup',
           disabled: !this.listsData.itemMenuControl.moveup,
@@ -211,6 +224,21 @@ export default {
           disabled: !this.listMenu.itemMenuControl.download,
         },
         {
+          name: this.$t('view.list.list_add_to'),
+          action: 'addTo',
+          disabled: !this.listMenu.itemMenuControl.addTo,
+        },
+        {
+          name: this.$t('view.list.list_move_to'),
+          action: 'moveTo',
+          disabled: !this.listMenu.itemMenuControl.moveTo,
+        },
+        {
+          name: this.$t('view.list.list_sort'),
+          action: 'sort',
+          disabled: !this.listMenu.itemMenuControl.sort,
+        },
+        {
           name: this.$t('view.list.list_copy_name'),
           action: 'copyName',
           disabled: !this.listMenu.itemMenuControl.copyName,
@@ -221,14 +249,9 @@ export default {
           disabled: !this.listMenu.itemMenuControl.sourceDetail,
         },
         {
-          name: this.$t('view.list.list_add_to'),
-          action: 'addTo',
-          disabled: !this.listMenu.itemMenuControl.addTo,
-        },
-        {
-          name: this.$t('view.list.list_move_to'),
-          action: 'moveTo',
-          disabled: !this.listMenu.itemMenuControl.moveTo,
+          name: this.$t('view.list.list_search'),
+          action: 'search',
+          disabled: !this.listMenu.itemMenuControl.search,
         },
         {
           name: this.$t('view.list.list_remove'),
@@ -271,6 +294,12 @@ export default {
         this.handleDelayShow()
       })
     })
+    this.isShowDownload = false
+    this.isShowDownloadMultiple = false
+    this.isShowListAdd = false
+    this.isShowListAddMultiple = false
+    this.isShowListSortModal = false
+    this.listMenu.isShowItemMenu = false
     next()
   },
   // mounted() {
@@ -289,18 +318,14 @@ export default {
   // },
   beforeRouteLeave(to, from, next) {
     this.clearDelayTimeout()
-    this.routeLeaveLocation = (this.list.length && this.$refs.dom_scrollContent.scrollTop) || 0
+    this.setListScroll({ id: this.listId, location: (this.list.length && this.$refs.dom_scrollContent.scrollTop) || 0 })
     next()
   },
   created() {
     this.listId = this.$route.query.id || this.defaultList.id
     this.setPrevSelectListId(this.listId)
-    this.handleScroll = throttle(e => {
-      if (this.routeLeaveLocation) {
-        this.setListScroll({ id: this.listId, location: this.routeLeaveLocation })
-      } else {
-        this.setListScroll({ id: this.listId, location: e.target.scrollTop })
-      }
+    this.handleSaveScroll = throttle((listId, location) => {
+      this.setListScroll({ id: listId, location })
     }, 1000)
     this.listenEvent()
   },
@@ -310,10 +335,23 @@ export default {
   },
   beforeDestroy() {
     this.unlistenEvent()
+    this.setListScroll({ id: this.listId, location: (this.list.length && this.$refs.dom_scrollContent.scrollTop) || 0 })
   },
   methods: {
     ...mapMutations(['setPrevSelectListId']),
-    ...mapMutations('list', ['listRemove', 'listRemoveMultiple', 'setUserListName', 'createUserList', 'moveupUserList', 'movedownUserList', 'removeUserList', 'setListScroll']),
+    ...mapMutations('list', [
+      'listRemove',
+      'listRemoveMultiple',
+      'setUserListName',
+      'createUserList',
+      'moveupUserList',
+      'movedownUserList',
+      'removeUserList',
+      'setListScroll',
+      'setList',
+      'sortList',
+    ]),
+    ...mapActions('songList', ['getListDetailAll']),
     ...mapActions('download', ['createDownload', 'createDownloadMultiple']),
     ...mapMutations('player', {
       setPlayList: 'setList',
@@ -368,6 +406,9 @@ export default {
         this.delayShow = true
         this.restoreScroll(this.$route.query.scrollIndex, false)
       }
+    },
+    handleScroll(e) {
+      this.handleSaveScroll(this.listId, e.target.scrollTop)
     },
     clearDelayTimeout() {
       if (this.delayTimeout) {
@@ -618,6 +659,7 @@ export default {
       return assertApiSupport(source)
     },
     handleContainerClick(event) {
+      if (!this.$refs.dom_lists) return
       let isFocusList = event.target == this.$refs.dom_lists || this.$refs.dom_lists.contains(event.target)
       this.focusTarget = isFocusList ? 'list' : 'listDetail'
     },
@@ -669,6 +711,8 @@ export default {
       }).catch(_ => _)
     },
     handleListsItemRigthClick(event, index) {
+      const source = this.userList[index].source
+      this.listsData.itemMenuControl.sync = !!source && !!musicSdk[source].songList
       this.listsData.itemMenuControl.moveup = index > 0
       this.listsData.itemMenuControl.movedown = index < this.userList.length - 1
       this.listsData.rightClickItemIndex = index
@@ -714,6 +758,9 @@ export default {
             dom.classList.add(this.$style.editing)
             dom.querySelector('input').focus()
           })
+          break
+        case 'sync':
+          this.handleSyncSourceList(index)
           break
         case 'moveup':
           this.moveupUserList(index)
@@ -784,6 +831,24 @@ export default {
             })
           }
           break
+        case 'sort':
+          this.isShowListSortModal = true
+          this.musicInfo = this.list[index]
+          // if (this.selectdListDetailData.length) {
+          //   this.isShowDownloadMultiple = true
+          // } else {
+          //   minfo = this.list[index]
+          //   if (!this.assertApiSupport(minfo.source)) return
+          //   this.musicInfo = minfo
+          //   this.$nextTick(() => {
+          //     this.isShowDownload = true
+          //   })
+          // }
+          break
+        case 'search':
+          minfo = this.list[index]
+          this.handleSearch(minfo)
+          break
         case 'remove':
           if (this.selectdListDetailData.length) {
             this.listRemoveMultiple({ id: this.listId, list: this.selectdListDetailData })
@@ -814,6 +879,44 @@ export default {
           })
           break
       }
+    },
+    fetchList(id, source, sourceListId) {
+      if (this.fetchingListStatus[id] == null) {
+        this.$set(this.fetchingListStatus, id, true)
+      } else {
+        this.fetchingListStatus[id] = true
+      }
+      return this.getListDetailAll({ source, id: sourceListId }).finally(() => {
+        this.fetchingListStatus[id] = false
+      })
+    },
+    async handleSyncSourceList(index) {
+      const targetListInfo = this.userList[index]
+      const list = await this.fetchList(targetListInfo.id, targetListInfo.source, targetListInfo.sourceListId)
+      // console.log(targetListInfo.list.length, list.length)
+      this.removeAllSelectListDetail()
+      this.setList({
+        ...targetListInfo,
+        list,
+      })
+    },
+    handleSortMusicInfo(num) {
+      num = Math.min(num, this.list.length)
+      this.sortList({
+        id: this.listId,
+        sortNum: num,
+        musicInfos: this.selectdListDetailData.length ? [...this.selectdListDetailData] : [this.musicInfo],
+      })
+      this.removeAllSelectListDetail()
+      this.isShowListSortModal = false
+    },
+    handleSearch(musicInfo) {
+      this.$router.push({
+        path: 'search',
+        query: {
+          text: `${musicInfo.name} ${musicInfo.singer}`,
+        },
+      })
     },
   },
 }
@@ -881,7 +984,7 @@ export default {
 .listsItem {
   position: relative;
   transition: .3s ease;
-  transition-property: color, background-color;
+  transition-property: color, background-color, opacity;
   background-color: transparent;
   &:hover:not(.active) {
     background-color: @color-theme_2-hover;
@@ -896,6 +999,9 @@ export default {
   }
   &.clicked {
     background-color: @color-theme_2-hover;
+  }
+  &.fetching {
+    opacity: .5;
   }
   &.editing {
     padding: 0 10px;

@@ -158,6 +158,9 @@ const getUrl = (downloadInfo, isRefresh) => {
   return url && !isRefresh ? Promise.resolve({ url }) : music[downloadInfo.musicInfo.source].getMusicUrl(downloadInfo.musicInfo, downloadInfo.type).promise
 }
 
+// 修复 1.1.x版本 酷狗源歌词格式
+const fixKgLyric = lrc => /\[00:\d\d:\d\d.\d+\]/.test(lrc) ? lrc.replace(/(?:\[00:(\d\d:\d\d.\d+\]))/gm, '[$1') : lrc
+
 /**
  * 设置歌曲meta信息
  * @param {*} downloadInfo
@@ -184,7 +187,8 @@ const saveMeta = (downloadInfo, filePath, isEmbedPic, isEmbedLyric) => {
         })
       : Promise.resolve(),
   ]
-  Promise.all(tasks).then(([imgUrl, lyrics]) => {
+  Promise.all(tasks).then(([imgUrl, lyrics = {}]) => {
+    if (lyrics.lyric) lyrics.lyric = fixKgLyric(lyrics.lyric)
     setMeta(filePath, {
       title: downloadInfo.musicInfo.name,
       artist: downloadInfo.musicInfo.singer,
@@ -205,7 +209,10 @@ const downloadLyric = (downloadInfo, filePath) => {
     ? Promise.resolve({ lyric: downloadInfo.musicInfo.lrc, tlyric: downloadInfo.musicInfo.tlrc || '' })
     : music[downloadInfo.musicInfo.source].getLyric(downloadInfo.musicInfo).promise
   promise.then(lrcs => {
-    if (lrcs.lyric) saveLrc(filePath.replace(/(mp3|flac|ape|wav)$/, 'lrc'), lrcs.lyric)
+    if (lrcs.lyric) {
+      lrcs.lyric = fixKgLyric(lrcs.lyric)
+      saveLrc(filePath.replace(/(mp3|flac|ape|wav)$/, 'lrc'), lrcs.lyric)
+    }
   })
 }
 
@@ -370,11 +377,13 @@ const actions = {
       },
     }
     commit('setStatusText', { downloadInfo, text: '获取URL中...' })
-    let p = options.url ? Promise.resolve() : getUrl(downloadInfo).then(result => {
-      commit('updateUrl', { downloadInfo, url: result.url })
-      if (!result.url) return Promise.reject(new Error('获取URL失败'))
-      options.url = result.url
-    })
+    let p = options.url
+      ? Promise.resolve()
+      : getUrl(downloadInfo).then(result => {
+        commit('updateUrl', { downloadInfo, url: result.url })
+        if (!result.url) return Promise.reject(new Error('获取URL失败'))
+        options.url = result.url
+      })
     p.then(() => {
       tryNum[downloadInfo.key] = 0
       dls[downloadInfo.key] = download(options)
